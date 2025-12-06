@@ -310,7 +310,7 @@ const JobDescriptionUpload = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ jobRole: aiJobRole, companyName: aiCompanyName, experienceLevel: aiExperienceLevel,apiKey:apiKey }),
+        body: JSON.stringify({ jobRole: aiJobRole, companyName: aiCompanyName, experienceLevel: aiExperienceLevel, apiKey: apiKey }),
       });
 
       if (!response.ok) {
@@ -326,7 +326,7 @@ const JobDescriptionUpload = () => {
         .trim();
 
       const arrayData: string[] = JSON.parse(updatedData).filter((jd: string) => typeof jd === 'string' && jd.trim());
-      console.log("length",arrayData.length)
+      console.log("length", arrayData.length)
       if (!Array.isArray(arrayData) || arrayData.length < 5) {
         throw new Error(`Insufficient valid job descriptions received: ${arrayData.length}`);
       }

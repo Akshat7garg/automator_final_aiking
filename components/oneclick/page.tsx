@@ -75,23 +75,23 @@ const fillResumeData = (data: ResumeData) => {
   if (!data) return;
 
   const { updatePersonalData, resetPersonalData } = usePersonalDataStore.getState();
-const { addProject, resetProjects } = useProjectStore.getState();
-const { addEducation, resetEducations } = useEducationStore.getState();
-const { addCertificate, resetCertificates } = useCertificateStore.getState();
-const { addExperience, resetExperiences } = useExperienceStore.getState();
-const { addSkill, resetSkills } = useSkillStore.getState();
-const { addAchievement, resetAchievements } = useAchievementStore.getState();
-const { addLanguage, resetLanguages } = useLanguageStore.getState();
+  const { addProject, resetProjects } = useProjectStore.getState();
+  const { addEducation, resetEducations } = useEducationStore.getState();
+  const { addCertificate, resetCertificates } = useCertificateStore.getState();
+  const { addExperience, resetExperiences } = useExperienceStore.getState();
+  const { addSkill, resetSkills } = useSkillStore.getState();
+  const { addAchievement, resetAchievements } = useAchievementStore.getState();
+  const { addLanguage, resetLanguages } = useLanguageStore.getState();
 
-// Reset all stores
-resetPersonalData();
-resetProjects();
-resetEducations();
-resetCertificates();
-resetExperiences();
-resetSkills();
-resetAchievements();
-resetLanguages();
+  // Reset all stores
+  resetPersonalData();
+  resetProjects();
+  resetEducations();
+  resetCertificates();
+  resetExperiences();
+  resetSkills();
+  resetAchievements();
+  resetLanguages();
 
   Object.entries(data.personalData || {}).forEach(([key, value]) => {
     updatePersonalData(key, value);

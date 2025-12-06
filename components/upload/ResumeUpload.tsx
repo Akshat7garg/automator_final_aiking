@@ -36,17 +36,13 @@ export default function ResumeUpload({
   const [premium, setPremium] = useState<boolean>(false);
   const [api_key, setApi_key] = useState<string>("")
   const db = getDatabase(app)
-  //GET UID
+
+  // GET UID
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUid(user.uid);
-      } else {
-        setUid("");
-      }
+      if (user) setUid(user.uid);
+      else setUid("");
     });
-
-    // Cleanup listener on unmount
     return () => unsubscribe();
   }, []);
 
@@ -54,58 +50,44 @@ export default function ResumeUpload({
   useEffect(() => {
     const getApi = async () => {
       try {
-        // First attempt to fetch from 'apikey' path
         let apiRef = ref(db, `hr/${uid}/API/apikey`);
         let snapshot = await get(apiRef);
 
         if (snapshot.exists()) {
           setApi_key(snapshot.val());
-          return; // Exit early if found
+          return;
         }
 
-        // Try alternate 'apiKey' path
         apiRef = ref(db, `hr/${uid}/API/apiKey`);
         snapshot = await get(apiRef);
 
         if (snapshot.exists()) {
           setApi_key(snapshot.val());
         } else {
-          // Redirect if API key not found
           window.location.href = '/hr/gemini';
         }
       } catch (error) {
         console.error('Error fetching API key:', error);
-        window.location.href = '/hr/gemini'; // Redirect on error
+        window.location.href = '/hr/gemini';
       }
     };
 
-    if (uid) {
-      getApi(); // Only run if uid exists
-    }
+    if (uid) getApi();
   }, [uid, db, setApi_key]);
 
-
-  //Get User Payment Status From Firebase
+  // Get User Payment Status
   useEffect(() => {
     const getPaymentStatus = async function () {
-
       let paymentRef = ref(db, `hr/${uid}/Payment/Status`)
       let snapsort = await get(paymentRef);
       if (snapsort.exists()) {
         let val = snapsort.val();
-        console.log(val, "payment status")
-        if (val == "Premium") {
-          setPremium(true)
-        }
+        if (val == "Premium") setPremium(true)
       }
+    };
+    if (uid) getPaymentStatus();
+  }, [uid]);
 
-    }
-    if (uid) {
-      console.log(uid)
-      getPaymentStatus()
-    }
-
-  }, [uid])
 
   // Load from localStorage
   useEffect(() => {
@@ -117,29 +99,13 @@ export default function ResumeUpload({
     if (storedJobDescription) setJobDescription(storedJobDescription);
     if (storedRecruiterSuggestion) setRecruiterSuggestion(storedRecruiterSuggestion);
     if (storedJobTitle) setJobTitle(storedJobTitle);
-  }, [setJobDescription, setRecruiterSuggestion, setJobTitle]);
-
-  // Save to localStorage
-  useEffect(() => {
-    if (jobDescription) localStorage.setItem('jobDescription', jobDescription);
-    localStorage.removeItem('failedResumeFiles');
-  }, [jobDescription]);
-
-  useEffect(() => {
-    if (recruiterSuggestion) localStorage.setItem('recruiterSuggestion', recruiterSuggestion);
-  }, [recruiterSuggestion]);
-
-  useEffect(() => {
-    if (jobTitle) localStorage.setItem('jobTitle', jobTitle);
-  }, [jobTitle]);
+  }, []);
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const fileList = Array.from(files);
-    setSelectedFiles(fileList);
+    setSelectedFiles(Array.from(files));
   };
-
 
   const handleParseResumes = async () => {
     if (!jobDescription.trim()) {
@@ -178,100 +144,77 @@ export default function ResumeUpload({
             body: formData,
           });
 
+          const data = await res.json();
+
           if (!res.ok) {
-            const errorData = await res.json();
             if (res.status === 429) {
-              // Handle 429 Too Many Requests
-              const { message, retryAfter } = errorData;
-              toast.error(`${message} Redirecting to upgrade page in 3 seconds...`, {
-                position: 'top-center',
-                autoClose: 3000,
-                onClose: () => {
-                  router.push('/hr/updateGemini'); // Or '/upgrade-gemini'
-                },
-              });
+              toast.error(`Rate limit exceeded. Redirecting...`);
+              router.push('/hr/updateGemini');
               setLoading(false);
-              return; // Stop processing further files
+              return;
             }
-            throw new Error(errorData.error || `Failed to parse ${file.name}`);
+            throw new Error(data.error || `Failed to parse ${file.name}`);
           }
 
-          const { candidate, pdfParseFailedFiles: failed }: { candidate: Candidate | null; pdfParseFailedFiles: string[] } = await res.json();
+          const { candidate, pdfParseFailedFiles: failed } = data;
 
-          // Add failed PDFs to the list
+          // -------- >>> ADDED LINE: store upload timestamp
+          candidate.uploadedAt = new Date().toISOString();
+          // --------------------------------------------------
+
           if (failed && failed.length > 0) {
             allFailedFiles.push(...failed);
-            toast.warn(
-              `PDF parsing failed for: ${failed.join(', ')}. ${premium
-                ? 'Adobe fallback used for premium parsing.'
-                : 'Check download details for failed files. Upgrade to premium for better parsing accuracy.'
-              }`
-            );
-            console.log(`PDF parsing with pdf-parse failed for: ${failed.join(', ')}`);
           }
 
-          // Skip if no candidate or candidate has invalid data
-          if (!candidate || candidate.name === 'Unknown' || candidate.name === 'Processing Error' || candidate.name === 'Insufficient Text') {
-            if (!failed.includes(file.name)) {
-              allFailedFiles.push(file.name);
-            }
-            toast.warn(`Skipped ${file.name}: Invalid or no candidate data returned`);
+          if (!candidate || candidate.name === 'Unknown') {
+            allFailedFiles.push(file.name);
             continue;
           }
 
-          // Add valid candidates to the list
           allCandidates.push(candidate);
           toast.success(`Processed ${file.name} successfully!`);
-        } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : 'Unexpected error';
-          toast.error(`Error processing ${file.name}: ${errorMessage}`);
+        } catch (err: any) {
+          toast.error(`Error processing ${file.name}: ${err.message}`);
           allFailedFiles.push(file.name);
         }
       }
 
       if (allCandidates.length === 0) {
         setError('No valid resumes were processed successfully.');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
         setLoading(false);
         return;
       }
 
       setCandidates(allCandidates);
       localStorage.setItem('failedResumeFiles', JSON.stringify(allFailedFiles));
-      console.log('Candidates:', allCandidates);
-      console.log('Failed Files:', allFailedFiles);
-      setSelectedFiles([]);
 
-      // Store all candidate emails in Firebase shortlisted_marketing_data
+      // Save to Firebase
       try {
-        const db = getDatabase(app);
         for (const candidate of allCandidates) {
-          if (candidate.email && typeof candidate.email === 'string' && candidate.email.includes('@')) {
+          if (candidate.email) {
             const safeEmail = candidate.email.replace(/\./g, ',').toLowerCase();
             const marketingRef = ref(db, `shortlisted_marketing_data/${safeEmail}`);
+
             await set(marketingRef, {
               name: candidate.name,
               phone: candidate.phone,
               email: candidate.email,
+              uploadedAt: candidate.uploadedAt, // <<<< ADDED HERE
               isDownload: false,
             });
           }
         }
-        console.log('All candidate emails stored in shortlisted_marketing_data');
-      } catch (err) {
-        console.error('Error storing candidate emails in shortlisted_marketing_data:', err);
+      } catch (error) {
+        console.error("Error saving to Firebase", error);
       }
-      toast.success(
-        `Resumes parsed successfully! ${allFailedFiles.length > 0 ? `${allFailedFiles.length} file(s) failed and are listed in download details.` : ''}`
-      );
 
+      toast.success(`Resumes parsed successfully!`);
       setTimeout(() => {
         window.location.href = '/hr/candidates';
-      }, 3000);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unexpected error';
-      setError(`Unexpected error occurred: ${errorMessage}`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 2000);
+
+    } catch (err: any) {
+      setError(`Unexpected error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -309,7 +252,7 @@ export default function ResumeUpload({
           {/* Job Details Section - All in vertical layout */}
           <div className="space-y-6">
             <div className="space-y-2">
-              <label htmlFor="jobTitle" className="block text-sm font-medium text-[#ECF1F0] font-raleway flex items-center">
+              <label htmlFor="jobTitle" className="text-sm font-medium text-[#ECF1F0] font-raleway flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#0FAE96]" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
                   <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
@@ -327,7 +270,7 @@ export default function ResumeUpload({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="jobDescription" className="block text-sm font-medium text-[#ECF1F0] font-raleway flex items-center">
+              <label htmlFor="jobDescription" className="text-sm font-medium text-[#ECF1F0] font-raleway flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#0FAE96]" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                 </svg>
@@ -344,7 +287,7 @@ export default function ResumeUpload({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="recruiterNotes" className="block text-sm font-medium text-[#ECF1F0] font-raleway flex items-center">
+              <label htmlFor="recruiterNotes" className="text-sm font-medium text-[#ECF1F0] font-raleway flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-[#0FAE96]" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
                   <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />

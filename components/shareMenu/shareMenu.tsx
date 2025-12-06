@@ -45,7 +45,7 @@ const ShareMenu = ({ name }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, [isOpen]);
 
-  const shareUrl = `https://jobformautomator.com/${name}`;
+  const shareUrl = `/${name}`;
   const title = "🚀 Boost your career with AIKING! Get access to jobs, resume tools, and more.";
 
   return (
