@@ -104,15 +104,24 @@ export const fetchSkillsDataFromFirebase = async (uid: string): Promise<AppState
 
 export const deleteSkillsDataFromFirebase = async (uid: string) => {
   const db = getDatabase(app);
+
   const skillsDataRef = ref(db, `user/${uid}/skillsData`);
+  const learningTrackerRef = ref(db, `user/${uid}/learningTracker`);
+
   try {
+    // Delete skill roadmap
     await remove(skillsDataRef);
-    console.log('Skills data deleted from Firebase for user:', uid);
+
+    // Delete learning tracker
+    await remove(learningTrackerRef);
+
+    console.log('Skills + Learning Tracker deleted from Firebase for user:', uid);
   } catch (error) {
-    console.error('Error deleting skills data from Firebase:', error);
+    console.error('Error deleting data from Firebase:', error);
     throw error;
   }
 };
+
 
 export const fetchGeminiApiKey = async (uid: string): Promise<string | null> => {
   const db = getDatabase(app);

@@ -1,23 +1,19 @@
 import { Resume, JobDescription, Skill, Phase } from '@/types';
+import { commonSkills, SKILL_PRIORITY } from './skillPriority';
+
+// Escape special regex characters like + . * ? etc.
+const escapeRegExp = (str: string) =>
+  str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Fallback implementation if AI analysis fails
 export const extractSkillsFromText = (text: string): string[] => {
-  const commonSkills = [
-    'JavaScript', 'TypeScript', 'React', 'Angular', 'Vue', 'Node.js',
-    'Python', 'Java', 'C#', 'PHP', 'Ruby', 'Swift', 'Kotlin',
-    'HTML', 'CSS', 'SASS', 'LESS', 'Tailwind CSS', 'Bootstrap',
-    'SQL', 'MongoDB', 'PostgreSQL', 'MySQL', 'Firebase', 'AWS',
-    'Docker', 'Kubernetes', 'CI/CD', 'Git', 'GitHub', 'GitLab',
-    'Agile', 'Scrum', 'Project Management', 'Team Leadership',
-    'REST API', 'GraphQL', 'Redux', 'State Management',
-    'UI/UX Design', 'Figma', 'Adobe XD', 'Sketch',
-    'Testing', 'Jest', 'Cypress', 'Selenium',
-    'Machine Learning', 'AI', 'Data Science', 'Big Data',
-    'DevOps', 'Cloud Computing', 'Serverless',
-  ];
-  return commonSkills.filter(skill =>
-    new RegExp(`\\b${skill}\\b`, 'i').test(text)
-  );
+  const skillList = commonSkills;
+
+  return skillList.filter(skill => {
+    const escapedSkill = escapeRegExp(skill);               // Escape regex symbols
+    const regex = new RegExp(`\\b${escapedSkill}\\b`, 'i'); // Safe regex
+    return regex.test(text);
+  });
 };
 
 export const findSkillGaps = (
@@ -93,12 +89,23 @@ export const getVideoRecommendations = async (skills: string[]) => {
 };
 
 export const createLearningPath = (missingSkills: string[]): Phase[] => {
-  const fundamentalSkills = missingSkills.slice(0, Math.ceil(missingSkills.length / 3));
-  const intermediateSkills = missingSkills.slice(
-    Math.ceil(missingSkills.length / 3),
-    Math.ceil(missingSkills.length * 2 / 3)
+
+  // 1. Sort skills based on logical learning order
+  const sortedSkills = missingSkills.sort((a, b) => {
+    const priorityA = SKILL_PRIORITY[a] ?? SKILL_PRIORITY["default"];
+    const priorityB = SKILL_PRIORITY[b] ?? SKILL_PRIORITY["default"];
+    return priorityA - priorityB;
+  });
+
+  // 2. Split logically into Fundamental → Intermediate → Advanced
+  const fundamentalSkills = sortedSkills.slice(0, Math.ceil(sortedSkills.length / 3));
+  const intermediateSkills = sortedSkills.slice(
+    Math.ceil(sortedSkills.length / 3),
+    Math.ceil(sortedSkills.length * 2 / 3)
   );
-  const advancedSkills = missingSkills.slice(Math.ceil(missingSkills.length * 2 / 3));
+  const advancedSkills = sortedSkills.slice(Math.ceil(sortedSkills.length * 2 / 3));
+
+  // 3. Build phases
   return [
     {
       id: 'phase-1',
