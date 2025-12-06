@@ -122,7 +122,7 @@ const HowItWorks = () => {
       description:
         "Generate a keyword-optimized ATS resume that gets through filters. No guesswork—just one click to a job-winning document.",
       buttonText:"Create Auto Resume",
-      buttonLink:"https://www.jobformautomator.com/atsresume",
+      buttonLink:"/atsresume",
       videoId: "-IajAdu6PkU",
       thumbnail: "/images/resume.jpeg",
     },
@@ -132,7 +132,7 @@ const HowItWorks = () => {
       description:
         "Discover which skills you're missing—based on real-time job market data. Learn them for free. Improve your chances instantly. Plus: Our ATS checker tells you exactly why your resume may be getting rejected.",
         buttonText:"Skills Suggestion",
-        buttonLink:"https://www.jobformautomator.com/course/jobdescription",
+        buttonLink:"/course/jobdescription",
         videoId: "FeRTK3aHdIk",
         thumbnail: "/images/skill.jpeg",
     },
@@ -142,7 +142,7 @@ const HowItWorks = () => {
       description:
         "Nail every interview with AI-powered mock sessions, tailored questions, and instant feedback to boost your confidence and performance.",
         buttonText:"Start Interview",
-        buttonLink:"https://www.jobformautomator.com/interview",
+        buttonLink:"/interview",
         videoId: "6W1JAROCuzc",
         thumbnail: "/images/interview.jpeg",
     },

@@ -111,7 +111,7 @@ const HowItWorks = () => {
     description:
       "AI reads each resume like an expert recruiter, outputs match percentage (>98 % accuracy).",
     buttonText: "Short-list Resumes",
-    buttonLink: "https://www.jobformautomator.com/hr/resumeUpload",
+    buttonLink: "/hr/resumeUpload",
     videoId: "vSvcGE8_VHo",
     thumbnail: "/images/parse.jpeg",
   },
@@ -121,7 +121,7 @@ const HowItWorks = () => {
     description:
       "AI drafts, sends, and replies to personalised emails that double response rates.",
     buttonText: "Automate Emails",
-    buttonLink: "https://www.jobformautomator.com/hr/hrEmail",
+    buttonLink: "/hr/hrEmail",
     videoId: "lT7bcvlfBiI",
     thumbnail: "/images/autocom.jpeg",
   },
@@ -131,7 +131,7 @@ const HowItWorks = () => {
     description:
       "AI interviewer asks role-specific questions, records video, scores answers, and flags top talent—bias-free.",
     buttonText: "Conduct AI Interviews",
-    buttonLink: "https://www.jobformautomator.com/hr/interview",
+    buttonLink: "/hr/interview",
     videoId: "Pntex6wr7WI",
     thumbnail: "/images/interview.jpeg",
   },
@@ -141,7 +141,7 @@ const HowItWorks = () => {
     description:
       "AI-driven talent pool system organizes candidate profiles, tracks skills, and matches top talent to roles—streamlined and efficient.",
     buttonText: "Acquire Top Talent",
-    buttonLink: "https://www.jobformautomator.com/hr/talent_pool",
+    buttonLink: "/hr/talent_pool",
     videoId: "Xyzw9kqr8MJ",
     thumbnail: "/images/talent_pool.png",
   },

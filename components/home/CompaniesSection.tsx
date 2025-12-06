@@ -46,7 +46,6 @@ const CompaniesSection = () => {
                 fill
                 sizes="(max-width: 640px) 96px, (max-width: 1024px) 112px, 128px"
                 priority={index < 2}
-                quality={90}
                 className="object-contain"
               />
             </div>
