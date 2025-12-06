@@ -13,6 +13,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { getDatabase, ref, get, child } from 'firebase/database';
 import app from '@/firebase/config';
 import { toast } from "react-toastify";
+import LearningTracker from "./LearningTracker";
+import SkillBlogs from "./SkillBlogs";
 
 
 const Dashboard = () => {
@@ -23,6 +25,7 @@ const Dashboard = () => {
   const { resetState } = useAppContext();
   const [isPremium, setIsPremium] = useState(false);
   const [checkedPremium, setCheckedPremium] = useState(false);
+  const [activeTab, setActiveTab] = useState<"lectures" | "tracker" | "blog">("lectures");
 
 
   useEffect(() => {
@@ -69,6 +72,9 @@ const Dashboard = () => {
       try {
         // Reset Firebase data
         await deleteSkillsDataFromFirebase(user.uid);
+
+        localStorage.removeItem("skillBlogsCache");       // DELETE BLOG CACHE
+
         // Reset application state
         await resetState();
         // Redirect to job description page
@@ -152,12 +158,57 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-16">
           <div className="lg:col-span-2">
-            <div className="space-y-6">
-              {validPhases.map((phase) => (
-                <PhaseCard key={phase.id} phase={phase} />
-              ))}
+
+            {/* -------- Tabs / Buttons -------- */}
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={() => setActiveTab("lectures")}
+                className={`px-4 py-2 rounded-md text-white font-semibold transition ${activeTab === "lectures" ? "bg-[#0FAE96]" : "bg-[#2A2A2A]"
+                  }`}
+              >
+                Lectures
+              </button>
+
+              <button
+                onClick={() => setActiveTab("tracker")}
+                className={`px-4 py-2 rounded-md text-white font-semibold transition ${activeTab === "tracker" ? "bg-[#0FAE96]" : "bg-[#2A2A2A]"
+                  }`}
+              >
+                Tracker
+              </button>
+
+              <button
+                onClick={() => setActiveTab("blog")}
+                className={`px-4 py-2 rounded-md text-white font-semibold transition ${activeTab === "blog" ? "bg-[#0FAE96]" : "bg-[#2A2A2A]"
+                  }`}
+              >
+                Blog
+              </button>
             </div>
+
+            {/* -------- Content Based on Tab -------- */}
+            {activeTab === "lectures" && (
+              <div className="space-y-6">
+                {validPhases.map((phase) => (
+                  <PhaseCard key={phase.id} phase={phase} />
+                ))}
+              </div>
+            )}
+
+            {activeTab === "tracker" && (
+              <div className="space-y-6">
+                <LearningTracker />
+              </div>
+            )}
+
+            {activeTab === "blog" && (
+              <div className="space-y-6">
+                <SkillBlogs />
+              </div>
+            )}
+
           </div>
+
 
           <div className="space-y-6">
             {!isPremium && <PremiumCard />}
