@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import {
   usePersonalDataStore,
   useCertificateStore,
@@ -42,19 +42,9 @@ export default function Resume() {
   const paddingLeftRight = 24;
   const availableContentHeight = basePageHeight - 2 * paddingTopBottom;
 
-  // Responsive state
-  const [isMounted, setIsMounted] = useState(false);
-  const [pageGroups, setPageGroups] = useState<any[]>([]);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-
   // Dynamic font size based on screen size
   const responsiveFontSize = Math.max(fontSize * (window.innerWidth < 640 ? 0.8 : 1), 12);
   const headerFontSize = Math.max(responsiveFontSize - 4, 10);
-
-  // Ensure component is mounted
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   // Generate resume elements
   const generateElements = () => {
@@ -90,13 +80,13 @@ export default function Resume() {
           data: exp,
           section: "WORK EXPERIENCE",
         });
-       if (exp.description) {
+        if (exp.description) {
           elements.push({
             id: `experience-${index}-desc`,
             type: "experience-desc",
             data: { description: exp.description, parentId: index },
             section: "WORK EXPERIENCE",
-            })
+          });
         }
       });
     }
@@ -214,80 +204,7 @@ export default function Resume() {
     return elements;
   };
 
-  // Pagination logic
-  useEffect(() => {
-    if (!isMounted || !contentRef.current) return;
-
-    const elements = generateElements();
-    const pageHeight = availableContentHeight;
-    const pageGroupsTemp: any[] = [];
-    let currentPage: any[] = [];
-    let currentHeight = 0;
-    let i = 0;
-
-    const measureElementHeight = (element: any) => {
-      const elementNode = contentRef.current?.querySelector(`#${element.id}`);
-      return elementNode?.scrollHeight || 0;
-    };
-
-    while (i < elements.length) {
-      const element = elements[i];
-      const elementHeight = measureElementHeight(element);
-
-      if (elementHeight === 0) {
-        console.warn(`Element ${element.id} has zero height, skipping`);
-        i++;
-        continue;
-      }
-
-      if (element.type === "experience-header") {
-        let nextDescHeight = 0;
-        if (
-          i + 1 < elements.length &&
-          elements[i + 1].type === "experience-desc"
-        ) {
-          nextDescHeight = measureElementHeight(elements[i + 1]);
-        }
-        const totalHeight = elementHeight + nextDescHeight;
-        if (currentHeight + totalHeight > pageHeight) {
-          if (currentPage.length > 0) {
-            pageGroupsTemp.push(currentPage);
-            currentPage = [];
-            currentHeight = 0;
-          }
-        }
-        currentPage.push(element);
-        currentHeight += elementHeight;
-        i++;
-        while (i < elements.length && elements[i].type === "experience-desc") {
-          const descHeight = measureElementHeight(elements[i]);
-          if (currentHeight + descHeight > pageHeight) {
-            break;
-          }
-          currentPage.push(elements[i]);
-          currentHeight += descHeight;
-          i++;
-        }
-      } else {
-        if (currentHeight + elementHeight > pageHeight) {
-          if (currentPage.length > 0) {
-            pageGroupsTemp.push(currentPage);
-            currentPage = [];
-            currentHeight = 0;
-          }
-        }
-        currentPage.push(element);
-        currentHeight += elementHeight;
-        i++;
-      }
-    }
-
-    if (currentPage.length > 0) {
-      pageGroupsTemp.push(currentPage);
-    }
-
-    setPageGroups(pageGroupsTemp);
-  }, [
+  const elements = useMemo(() => generateElements(), [
     personalData,
     certificates,
     achievements,
@@ -296,7 +213,6 @@ export default function Resume() {
     projects,
     languages,
     skills,
-    isMounted,
   ]);
 
   // Render individual resume elements
@@ -357,7 +273,7 @@ export default function Resume() {
                 </div>
               )}
               {element.data.website && (
-                <div className="flex items-center space-x-1 print:hidden">
+                <div className="flex items-center space-x-1">
                   <svg
                     className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 ${iconDisplay}`}
                     viewBox="0 0 24 24"
@@ -372,11 +288,7 @@ export default function Resume() {
                     />
                   </svg>
                   <a
-                    href={
-                      element.data.website.startsWith("http")
-                        ? element.data.website
-                        : `https://${element.data.website}`
-                    }
+                    href={`${element.data.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`text-blue-600 ${linkStyle}`}
@@ -399,7 +311,7 @@ export default function Resume() {
                     />
                   </svg>
                   <a
-                    href={element.data.twitter}
+                    href={`${element.data.twitter}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`text-blue-600 ${linkStyle}`}
@@ -443,7 +355,7 @@ export default function Resume() {
                     />
                   </svg>
                   <a
-                    href={element.data.linkedin}
+                    href={`${element.data.linkedin}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`text-blue-600 ${linkStyle}`}
@@ -548,56 +460,56 @@ export default function Resume() {
         );
       case "experience-header":
         return (
-           <div className="mb-2 sm:mb-3">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
-        <div>
-          <p
-            className="text-sm sm:text-base font-medium"
-            style={{ fontStyle }}
-          >
-            {element.data.position}
-          </p>
-          <span className="text-xs sm:text-sm text-gray-600">
-            {element.data.company}, {element.data.location} | {element.data.dateRange}
-          </span>
-        </div>
-      </div>
-    </div>
+          <div className="mb-2 sm:mb-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline">
+              <div>
+                <p
+                  className="text-sm sm:text-base font-medium"
+                  style={{ fontStyle }}
+                >
+                  {element.data.position}
+                </p>
+                <span className="text-xs sm:text-sm text-gray-600">
+                  {element.data.company}, {element.data.location} | {element.data.dateRange}
+                </span>
+              </div>
+            </div>
+          </div>
         );
       case "experience-desc":
-  // Return null if description is undefined or empty
-  if (!element.data.description || element.data.description.trim().length === 0) {
-    return null;
-  }
+        // Return null if description is undefined or empty
+        if (!element.data.description || element.data.description.trim().length === 0) {
+          return null;
+        }
 
-  // Protect ".js" by replacing the period with a placeholder
-  const sentences = element.data.description
-    .replace(
-      /(\b(?:Express|React|Node)\.js\b)/g,
-      (match) => match.replace(".", "[DOT]")
-    )
-    .split(/\.\s+(?=[A-Z])/) // Split on ". " followed by a capital letter
-    .map((sentence: string) =>
-      sentence
-        .replace(/\[DOT\]/g, ".") // Restore ".js"
-        .trim()
-    )
-    .filter((sentence: string) => sentence.length > 0);
+        // Protect ".js" by replacing the period with a placeholder
+        const sentences = element.data.description
+          .replace(
+            /(\b(?:Express|React|Node)\.js\b)/g,
+            (match: string) => match.replace(".", "[DOT]")
+          )
+          .split(/\.\s+(?=[A-Z])/) // Split on ". " followed by a capital letter
+          .map((sentence: string) =>
+            sentence
+              .replace(/\[DOT\]/g, ".") // Restore ".js"
+              .trim()
+          )
+          .filter((sentence: string) => sentence.length > 0);
 
-  return (
-    <ul
-      className="list-disc list-outside text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4 ml-6 print:ml-4"
-      key={`experience-desc-${element.data.parentId}`}
-    >
-      {sentences.map((detail: string, i: number) => (
-        <li key={`experience-${element.data.parentId}-desc-${i}`}>
-          {detail}
-          {i < sentences.length - 1 && detail.endsWith(".") ? "" : "."}
-        </li>
-      ))}
-    </ul>
-  );
-  
+        return (
+          <ul
+            className="list-disc list-outside text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4 ml-6 print:ml-4"
+            key={`experience-desc-${element.data.parentId}`}
+          >
+            {sentences.map((detail: string, i: number) => (
+              <li key={`experience-${element.data.parentId}-desc-${i}`}>
+                {detail}
+                {i < sentences.length - 1 && detail.endsWith(".") ? "" : "."}
+              </li>
+            ))}
+          </ul>
+        );
+
       case "project-header":
         return (
           <div className="mb-2 sm:mb-3">
@@ -697,55 +609,27 @@ export default function Resume() {
   };
 
   return (
-    <>
+    <div className="resume-container font-sans print:p-0 w-full">
       {/* Hidden content for measuring element heights */}
       <div
-        ref={contentRef}
         className="absolute -top-[9999px] -left-[9999px] w-[210mm] pointer-events-none"
       >
-        {generateElements().map((element) => (
+        {elements.map((element) => (
           <div key={element.id} id={element.id} className="break-words">
             {renderElement(element)}
           </div>
         ))}
       </div>
 
-      <div className="resume-container font-sans print:p-0 w-full">
-        {/* Visible paginated content */}
-        {pageGroups.length > 0 ? (
-          pageGroups.map((page, pageIndex) => (
-            <div
-              key={pageIndex}
-              className={`page print-page bg-white text-gray-800 w-full max-w-[210mm] mx-auto h-[${basePageHeight}px] mb-4 sm:mb-5 shadow-lg print:h-auto print:shadow-none print:page-break-after-always print:mt-0 print:mb-0`}
-            >
-              <div
-                className={`content-wrapper px-4 sm:px-6 md:px-8 py-6 sm:py-8 h-auto overflow-y-auto print:p-0 print:h-auto`}
-                style={{ backgroundColor }}
-              >
-                {page.map((element: any, index: number) => (
-                  <div key={element.id}>
-                    {renderElement(
-                      element,
-                      index === 0 || element.section !== page[index - 1]?.section
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div
-            className={`page print-page bg-white text-gray-800 w-full max-w-[210mm] mx-auto h-[${basePageHeight}px] mb-4 sm:mb-5 shadow-lg print:h-auto print:shadow-none print:page-break-after-always print:mt-0 print:mb-0`}
-          >
-            <div
-              className={`content-wrapper px-4 sm:px-6 md:px-8 py-6 sm:py-8 h-auto print:p-0 print:h-auto`}
-              style={{ backgroundColor }}
-            >
-              <p className="text-center text-gray-500">Loading content...</p>
-            </div>
-          </div>
-        )}
+      {/* Visible continuous content */}
+      <div
+        className={`content-wrapper p-6 h-auto print:p-0 print:h-auto`}
+        style={{ backgroundColor }}
+      >
+        {elements.map((element) => (
+          <div key={element.id}>{renderElement(element)}</div>
+        ))}
       </div>
-    </>
+    </div>
   );
 }

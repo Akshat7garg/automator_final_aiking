@@ -26,26 +26,9 @@ export default function Classic() {
   // Access theme settings
   const { primaryColor, fontSize, lineHeight } = useThemeStore();
 
-  // A4 dimensions in pixels (at 96 DPI for screen, adjusted for print)
-  const basePageWidth = 794; // 210mm
-  const basePageHeight = 1124; // 297mm
-  const paddingTopBottom = 24; // Reduced for smaller screens
-  const paddingLeftRight = 24;
-  const availableContentHeight = basePageHeight - 2 * paddingTopBottom;
-
-  // Refs and state for pagination
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const [pageGroups, setPageGroups] = useState<unknown[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
-
   // Dynamic font size based on screen size
   const responsiveFontSize = Math.max(fontSize * (window.innerWidth < 640 ? 0.8 : 1), 12);
   const headerFontSize = Math.max(responsiveFontSize - 2, 12);
-
-  // Ensure component is mounted before measuring
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   // Generate all resume elements in the desired order (unchanged)
   const generateElements = () => {
@@ -181,84 +164,6 @@ export default function Classic() {
     skills,
   ]);
 
-  // Pagination logic (unchanged)
-  useEffect(() => {
-    if (!isMounted || !contentRef.current) return;
-
-    const pageHeight = availableContentHeight;
-    const pageGroupsTemp = [];
-    let currentPage = [];
-    let currentHeight = 0;
-    let i = 0;
-
-    const measureElementHeight = (element) => {
-      const elementNode = contentRef.current?.querySelector(`#${element.id}`);
-      return elementNode?.scrollHeight || 50; // Default to 50px if height is 0
-    };
-
-    while (i < elements.length) {
-      const element = elements[i];
-      const elementHeight = measureElementHeight(element);
-
-      if (elementHeight === 0) {
-        console.warn(`Element ${element.id} has zero height, skipping`);
-        i++;
-        continue;
-      }
-
-      if (element.type === "experience-header") {
-        let nextDescHeight = 0;
-        if (i + 1 < elements.length && elements[i + 1].type === "experience-desc") {
-          nextDescHeight = measureElementHeight(elements[i + 1]);
-        }
-        const totalHeight = elementHeight + nextDescHeight;
-        if (currentHeight + totalHeight > pageHeight && currentPage.length > 0) {
-          pageGroupsTemp.push(currentPage);
-          currentPage = [];
-          currentHeight = 0;
-        }
-        currentPage.push(element);
-        currentHeight += elementHeight;
-        i++;
-        while (i < elements.length && elements[i].type === "experience-desc") {
-          const descHeight = measureElementHeight(elements[i]);
-          if (currentHeight + descHeight > pageHeight) {
-            break;
-          }
-          currentPage.push(elements[i]);
-          currentHeight += descHeight;
-          i++;
-        }
-      } else {
-        if (currentHeight + elementHeight > pageHeight && currentPage.length > 0) {
-          pageGroupsTemp.push(currentPage);
-          currentPage = [];
-          currentHeight = 0;
-        }
-        currentPage.push(element);
-        currentHeight += elementHeight;
-        i++;
-      }
-    }
-
-    if (currentPage.length > 0) {
-      pageGroupsTemp.push(currentPage);
-    }
-
-    setPageGroups(pageGroupsTemp);
-  }, [
-    personalData,
-    certificates,
-    achievements,
-    experiences,
-    educations,
-    projects,
-    languages,
-    skills,
-    isMounted,
-    elements,
-  ]);
-
   // Render individual resume elements with theme adjustments
   const renderElement = (element: any) => {
     const nameFontSize = responsiveFontSize + 4; // Slightly larger for name
@@ -386,6 +291,29 @@ export default function Classic() {
                   </a>
                 </div>
               )}
+              {element.data.twitter && (
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <svg
+                    className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M22 4.5a9 9 0 01-2.6.7 4.5 4.5 0 00-7.7 4c-4 0-7.5-2-10-5a4.5 4.5 0 001.5 6c-1 0-2-.3-2.5-1v.1a4.5 4.5 0 003.5 4.4 4.5 4.5 0 01-2 .1 4.5 4.5 0 004.2 3A9 9 0 012 19c2 1 4 1.5 6.5 1.5 7.5 0 12-6 12-12v-.5a8.5 8.5 0 002-2.5z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                  <a
+                    href={`${element.data.twitter}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {element.data.twitter}
+                  </a>
+                </div>
+              )}
               {element.data.linkedin && (
                 <div className="flex items-center space-x-1 sm:space-x-2">
                   <svg
@@ -484,36 +412,34 @@ export default function Classic() {
           </div>
         );
 
-     case "experience-desc":
-  // Return null if description is undefined or empty
-  if (!element.data.description || element.data.description.trim().length === 0) {
-    return null;
-  }
+      case "experience-desc":
+        if (!element.data.description || element.data.description.trim().length === 0) {
+          return null;
+        }
 
-  // Protect ".js" by replacing the period with a placeholder
-  const sentences = element.data.description
-    .replace(
-      /(\b(?:Express|React|Node)\.js\b)/g,
-      (match : any) => match.replace(".", "[DOT]")
-    )
-    .split(/\.\s+(?=[A-Z])/) // Split on ". " followed by a capital letter
-    .map((sentence: string) =>
-      sentence
-        .replace(/\[DOT\]/g, ".") // Restore ".js"
-        .trim()
-    )
-    .filter((sentence: string) => sentence.length > 0);
+        const sentences = element.data.description
+          .replace(
+            /(\b(?:Express|React|Node)\.js\b)/g,
+            (match: string) => match.replace(".", "[DOT]")
+          )
+          .split(/\.\s+(?=[A-Z])/)
+          .map((sentence: string) =>
+            sentence
+              .replace(/\[DOT\]/g, ".")
+              .trim()
+          )
+          .filter((sentence: string) => sentence.length > 0);
 
-  return (
-    <ul className="list-disc list-outside text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4 pl-4 sm:pl-5">
-      {sentences.map((detail: string, i: number) => (
-        <li key={`experience-${element.data.parentId}-desc-${i}`}>
-          {detail}
-          {i < sentences.length - 1 && detail.endsWith(".") ? "" : "."}
-        </li>
-      ))}
-    </ul>
-  );
+        return (
+          <ul className="list-disc list-outside text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4 pl-4 sm:pl-5">
+            {sentences.map((detail: string, i: number) => (
+              <li key={`experience-${element.data.parentId}-desc-${i}`}>
+                {detail}
+                {i < sentences.length - 1 && detail.endsWith(".") ? "" : "."}
+              </li>
+            ))}
+          </ul>
+        );
 
       case "project-header":
         return (
@@ -597,10 +523,9 @@ export default function Classic() {
   };
 
   return (
-    <div className="resume-container font-sans print:p-0 w-full">
+    <div className="resume-container font-sans print:p-0 w-full bg-white">
       {/* Hidden content for measuring element heights */}
       <div
-        ref={contentRef}
         className="absolute -top-[9999px] -left-[9999px] w-[210mm] pointer-events-none"
       >
         {elements.map((element) => (
@@ -610,35 +535,14 @@ export default function Classic() {
         ))}
       </div>
 
-      {/* Visible paginated content */}
-      {pageGroups.length > 0 ? (
-        pageGroups.map((page, pageIndex) => (
-          <div
-            key={pageIndex}
-            className={`page print-page bg-white text-gray-800 w-full max-w-[210mm] mx-auto h-[${basePageHeight}px] mb-4 sm:mb-5 shadow-lg print:h-auto print:shadow-none print:page-break-after-always print:mt-0 print:mb-0`}
-          >
-            <div
-              className={`content-wrapper px-4 sm:px-6 md:px-8 py-6 sm:py-8 h-auto overflow-y-auto print:p-0 print:h-auto`}
-            >
-              {page.map((element: any, index: number) => (
-                <div key={element.id}>
-                  {renderElement(element)}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))
-      ) : (
-        <div
-          className={`page print-page bg-white text-gray-800 w-full max-w-[210mm] mx-auto h-[${basePageHeight}px] mb-4 sm:mb-5 shadow-lg print:h-auto print:shadow-none print:page-break-after-always print:mt-0 print:mb-0`}
-        >
-          <div
-            className={`content-wrapper px-4 sm:px-6 md:px-8 py-6 sm:py-8 h-auto print:p-0 print:h-auto`}
-          >
-            <p className="text-center text-gray-500">Loading content...</p>
-          </div>
-        </div>
-      )}
+      {/* Visible continuous content */}
+      <div
+        className={`content-wrapper h-auto print:p-0 print:h-auto bg-white`}
+      >
+        {elements.map((element) => (
+          <div key={element.id}>{renderElement(element)}</div>
+        ))}
+      </div>
     </div>
   );
 }

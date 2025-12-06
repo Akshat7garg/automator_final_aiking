@@ -21,13 +21,38 @@ export default function Celibi() {
   const { languages } = useLanguageStore();
   const { skills } = useSkillStore();
 
+  // ---- Helper: split description into bullet-point sentences (same logic as template 1) ----
+  const splitDescriptionIntoSentences = (text?: string) => {
+    if (!text || text.trim().length === 0) return [];
+
+    // Protect ".js" tech names
+    const protectedText = text.replace(
+      /(\b(?:Express|React|Node)\.js\b)/g,
+      (match: string) => match.replace(".", "[DOT]")
+    );
+
+    const rawSentences = protectedText
+      .split(/\.\s+(?=[A-Z])/)
+      .map((sentence: string) =>
+        sentence.replace(/\[DOT\]/g, ".").trim()
+      )
+      .filter((sentence: string) => sentence.length > 0);
+
+    // Ensure each bullet ends with a period
+    return rawSentences.map((s) => (s.endsWith(".") ? s : s + "."));
+  };
+
   return (
-    <div className="bg-white text-gray-800 max-w-3xl mx-auto p-8 font-sans shadow-lg border border-gray-100 rounded-md flex">
+    <div className="bg-white text-gray-800 mx-auto font-sans flex">
       {/* Sidebar Section */}
       <aside className="w-1/3 bg-gray-100 p-6 rounded-l-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-teal-700">{personalData.name}</h1>
-          <h2 className="text-md text-gray-600">{personalData.headline}</h2>
+          <h1 className="text-2xl font-bold text-teal-700">
+            {personalData.name || "Your Name"}
+          </h1>
+          <h2 className="text-md text-gray-600">
+            {personalData.headline || "Your Professional Headline"}
+          </h2>
         </div>
 
         <div className="mb-8">
@@ -37,12 +62,36 @@ export default function Celibi() {
           <div className="text-sm text-gray-700 space-y-2">
             {personalData.address && <div>{personalData.address}</div>}
             {personalData.phone && <div>{personalData.phone}</div>}
-            {personalData.email && <div>{personalData.email}</div>}
+            {personalData.email && (
+              <div>
+                <a
+                  href={`mailto:${personalData.email}`}
+                  className="text-teal-500 hover:underline"
+                >
+                  {personalData.email}
+                </a>
+              </div>
+            )}
+            {personalData.website && (
+              <div>
+                Website:{" "}
+                <a
+                  href={personalData.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-500 hover:underline"
+                >
+                  {personalData.website}
+                </a>
+              </div>
+            )}
             {personalData.github && (
               <div>
                 GitHub:{" "}
                 <a
-                  href={`https://github.com/${personalData.github}`}
+                  href={personalData.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-teal-500 hover:underline"
                 >
                   {personalData.github}
@@ -54,9 +103,11 @@ export default function Celibi() {
                 LinkedIn:{" "}
                 <a
                   href={personalData.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-teal-500 hover:underline"
                 >
-                  LinkedIn
+                  {personalData.linkedin}
                 </a>
               </div>
             )}
@@ -64,7 +115,9 @@ export default function Celibi() {
               <div>
                 Twitter:{" "}
                 <a
-                  href={`https://twitter.com/${personalData.twitter}`}
+                  href={personalData.twitter}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-teal-500 hover:underline"
                 >
                   {personalData.twitter}
@@ -84,10 +137,12 @@ export default function Celibi() {
               {skills.map((skill, index) => (
                 <li key={index}>
                   <div className="font-medium">{skill.heading}</div>
-                  {skill.items &&
-                    skill.items.split(",").map((detail, i) => (
-                      <p key={i} className="text-gray-700 text-xs">{detail.trim()}</p>
-                    ))}
+                  {/* Keep visual structure, but logic consistent with template 1 (single line if you want) */}
+                  {skill.items && (
+                    <p className="text-gray-700 text-xs">
+                      {skill.items}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -120,26 +175,30 @@ export default function Celibi() {
             <h3 className="text-teal-700 font-semibold text-lg mb-4 uppercase tracking-wider">
               Experience
             </h3>
-            {experiences.map((exp, index) => (
-              <div key={index} className="mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="font-semibold">
-                    {exp.company}, {exp.location}
-                  </span>
-                  <span className="text-gray-500">{exp.dateRange}</span>
+            {experiences.map((exp, index) => {
+              const bullets = splitDescriptionIntoSentences(exp.description);
+
+              return (
+                <div key={index} className="mb-6">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold">
+                      {exp.company}, {exp.location}
+                    </span>
+                    <span className="text-gray-500">{exp.dateRange}</span>
+                  </div>
+                  <p className="italic text-gray-700 text-sm mb-2">
+                    {exp.position}
+                  </p>
+                  {!!bullets.length && (
+                    <ul className="list-disc list-inside text-gray-700 text-sm space-y-1">
+                      {bullets.map((detail, i) => (
+                        <li key={i}>{detail}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-                <p className="italic text-gray-700 text-sm mb-2">
-                  {exp.position}
-                </p>
-                {exp.description && (
-                  <ul className="list-disc list-inside text-gray-700 text-sm space-y-1">
-                    {exp.description.split(",").map((detail, i) => (
-                      <li key={i}>{detail.trim()}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </section>
         )}
 
@@ -168,7 +227,9 @@ export default function Celibi() {
                   </span>
                   <span className="text-gray-500">{proj.date}</span>
                 </div>
-                <p className="text-gray-700">{proj.description}</p>
+                {proj.description && (
+                  <p className="text-gray-700">{proj.description}</p>
+                )}
               </div>
             ))}
           </section>
@@ -230,7 +291,9 @@ export default function Celibi() {
             {achievements.map((achievement, index) => (
               <div key={index} className="mb-4">
                 <div className="font-semibold">{achievement.name}</div>
-                <p className="text-gray-700 text-sm">{achievement.details}</p>
+                <p className="text-gray-700 text-sm">
+                  {achievement.details}
+                </p>
               </div>
             ))}
           </section>
