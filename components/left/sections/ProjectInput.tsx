@@ -8,8 +8,7 @@ import { useProjectStore } from "@/app/store";
 export default function ProjectInput() {
   const [isOpen, setIsOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const { projects, addProject, updateProject, deleteProject } =
-    useProjectStore();
+  const { projects, addProject, updateProject, deleteProject } = useProjectStore();
   const [formData, setFormData] = useState({
     name: "",
     date: "",
@@ -28,7 +27,7 @@ export default function ProjectInput() {
     if (!formData.name || !formData.date || !formData.description) return;
 
     if (editId) {
-      updateProject(editId, formData.name, formData.description);
+      updateProject(editId, formData.name, formData.description, formData.date, formData.website);
     } else {
       addProject(
         formData.name,

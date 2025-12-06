@@ -13,46 +13,55 @@ import ProjectInput from "./sections/ProjectInput";
 import SkillsInput from "./sections/SkillsInput";
 import LanguageInput from "./sections/LanguageInput";
 
+/* -------------------- Repeated Styles Optimized -------------------- */
+const labelClass =
+  "block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase";
+
+const imgInputClass =
+  "w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl " +
+  "bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] " +
+  "backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent " +
+  "focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner";
+
+const normalInputClass =
+  "w-full p-3 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl " +
+  "bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto " +
+  "placeholder-text-subtitle focus:ring-2 focus:ring-primary-accent focus:border-primary-accent " +
+  "focus:bg-white hover:bg-white valid:bg-white hover:text-black transition-all duration-300 shadow-inner";
+
 export default function LeftSidebar() {
   const { personalData, updatePersonalData } = usePersonalDataStore();
-  const fileInputRef = useRef(null);
-  const [profileImage, setProfileImage] = useState(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
   const handleChangePersonal = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    updatePersonalData(name, value);
-  };
+  ) => updatePersonalData(e.target.name, e.target.value);
 
-  const handleImageSelect = (e) => {
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setProfileImage(imageUrl);
-    }
-  };
-
-  const handleIconClick = () => {
-    fileInputRef.current.click();
+    if (file) setProfileImage(URL.createObjectURL(file));
   };
 
   return (
     <div className="w-full h-full max-w-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary-accent scrollbar-track-[rgba(255,255,255,0.05)] bg-gradient-to-b from-[#0F011E] via-[rgba(17,1,30,0.95)] to-[#0F011E] text-text-subtitle shadow-2xl rounded-xl">
+
       {/* Basics Section */}
       <section className="p-4 sm:p-6 md:p-8 border-b border-[rgba(255,255,255,0.05)] bg-[#0F011E] backdrop-blur-md">
-        <div className="flex items-center gap-4 mb-6 relative">
-          <GoPerson className="text-2xl sm:text-3xl text-primary-accent drop-shadow-lg animate-pulse-slow" />
+
+        <div className="flex items-center justify-center gap-4 mb-6 relative">
+          {/* <GoPerson className="text-2xl sm:text-3xl text-primary-accent drop-shadow-lg animate-pulse-slow" /> */}
           <h2 className="text-lg sm:text-xl md:text-3xl font-extrabold font-raleway text-transparent bg-gradient-to-r from-pink-300 to-green-400 bg-clip-text tracking-wider">
             Basics
           </h2>
-
           <div className="absolute -top-4 -left-4 w-16 sm:w-20 h-16 sm:h-20 bg-emphasis-purple opacity-20 rounded-full blur-3xl"></div>
         </div>
 
+        {/* Picture */}
         <div className="mb-6">
-          <label className="block text-xs sm:text-sm font-medium mb-3 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-            Picture
-          </label>
+          <label className={`${labelClass} mb-3`}>Picture</label>
+
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary-accent via-[#0F8E76] to-[#0F6E56] rounded-full flex items-center justify-center text-pure-white text-xl sm:text-2xl font-raleway shadow-lg ring-4 ring-[rgba(15,174,150,0.2)] transition-transform hover:scale-110 hover:ring-[rgba(15,174,150,0.4)] duration-300 overflow-hidden">
               {profileImage ? (
@@ -63,14 +72,12 @@ export default function LeftSidebar() {
             </div>
 
             <button
-              onClick={handleIconClick}
-              className="p-2 border border-[rgba(0,255,0,0.1)] rounded-xl bg-[rgba(6, 238, 6, 0.05)] backdrop-blur-sm hover:bg-[rgba(0,200,0,0.1)] hover:border-green-500 transition-all duration-300
-"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 border border-[rgba(0,255,0,0.1)] rounded-xl bg-[rgba(6, 238, 6, 0.05)] backdrop-blur-sm hover:bg-[rgba(0,200,0,0.1)] hover:border-green-500 transition-all duration-300"
             >
               <AiOutlineLink className="text-green-500 hover:text-green-700 transition-colors duration-200" />
             </button>
 
-            {/* Hidden file input */}
             <input
               type="file"
               accept="image/*"
@@ -81,86 +88,86 @@ export default function LeftSidebar() {
           </div>
         </div>
 
+        {/* Full Name */}
         <div className="mb-6">
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-            Full Name
-          </label>
+          <label className={labelClass}>Full Name</label>
           <input
             type="text"
-            className="w-full p-3 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto placeholder-text-subtitle focus:ring-2 focus:ring-primary-accent focus:border-primary-accent focus:bg-white hover:bg-white valid:bg-white hover:text-black transition-all duration-300 shadow-inner"
             name="name"
             value={personalData.name || ""}
             onChange={handleChangePersonal}
             placeholder="Your full name"
+            className={normalInputClass}
           />
-
         </div>
 
+        {/* Headline */}
         <div className="mb-6">
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-            Headline
-          </label>
+          <label className={labelClass}>Headline</label>
           <input
             type="text"
-            className="w-full p-3 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto placeholder-text-subtitle focus:ring-2 focus:ring-primary-accent focus:border-primary-accent focus:bg-white hover:bg-white valid:bg-white hover:text-black transition-all duration-300 shadow-inner"
             name="headline"
             value={personalData.headline || ""}
             onChange={handleChangePersonal}
             placeholder="Your professional headline"
+            className={normalInputClass}
           />
         </div>
 
+        {/* Grid Inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* Email */}
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-2 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse font-roboto text-text-subtitle tracking-tight uppercase">
-              Email
-            </label>
+            <label className={labelClass}>Email</label>
             <div className="relative">
               <input
                 type="email"
-                className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="email"
                 value={personalData.email || ""}
                 onChange={handleChangePersonal}
                 placeholder="Your email"
+                className={imgInputClass}
               />
-              <AiOutlineMail className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle hover:text-primary-accent transition-colors duration-200" />
+              <AiOutlineMail className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle" />
             </div>
           </div>
+
+          {/* Website */}
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-2 sm:mb-3 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse font-roboto text-text-subtitle tracking-tight uppercase">
-              Website
-            </label>
+            <label className={labelClass}>Website</label>
             <div className="relative">
               <input
                 type="url"
-                className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="website"
                 value={personalData.website || ""}
                 onChange={handleChangePersonal}
                 placeholder="Your website"
+                className={imgInputClass}
               />
-              <BiWorld className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle hover:text-primary-accent transition-colors duration-200" />
+              <BiWorld className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle" />
             </div>
           </div>
         </div>
 
+        {/* Twitter + LinkedIn */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+
           <div>
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-              Twitter
-            </label>
+            <label className={labelClass}>Twitter</label>
             <div className="relative">
               <input
                 type="url"
-               className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="twitter"
                 value={personalData.twitter || ""}
                 onChange={handleChangePersonal}
                 placeholder="Your Twitter profile"
+                className={imgInputClass}
               />
+
+              {/* Twitter Icon */}
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle w-5 h-5 hover:text-primary-accent transition-colors duration-200"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle w-5 h-5"
                 viewBox="0 0 24 24"
                 fill="none"
               >
@@ -172,21 +179,22 @@ export default function LeftSidebar() {
               </svg>
             </div>
           </div>
+
+          {/* LinkedIn */}
           <div>
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-              LinkedIn
-            </label>
+            <label className={labelClass}>LinkedIn</label>
             <div className="relative">
               <input
                 type="url"
-                className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="linkedin"
                 value={personalData.linkedin || ""}
                 onChange={handleChangePersonal}
                 placeholder="Your LinkedIn profile"
+                className={imgInputClass}
               />
+
               <svg
-                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-text-subtitle w-5 sm:w-6 h-5 sm:h-6 hover:text-primary-accent transition-colors duration-200"
+                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-text-subtitle w-5 sm:w-6 h-5 sm:h-6"
                 viewBox="0 0 24 24"
                 fill="none"
               >
@@ -197,6 +205,7 @@ export default function LeftSidebar() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
+
                 <rect
                   x="2"
                   y="9"
@@ -204,55 +213,52 @@ export default function LeftSidebar() {
                   height="12"
                   stroke="currentColor"
                   strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                 />
+
                 <circle
                   cx="4"
                   cy="4"
                   r="2"
                   stroke="currentColor"
                   strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                 />
               </svg>
             </div>
           </div>
         </div>
 
+        {/* Phone + Location */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+
           <div>
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-              Phone
-            </label>
+            <label className={labelClass}>Phone</label>
             <div className="relative">
               <input
                 type="tel"
-                className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="phone"
                 value={personalData.phone || ""}
                 onChange={handleChangePersonal}
                 placeholder="+1 (123) 456-7890"
+                className={imgInputClass}
               />
-              <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle hover:text-primary-accent transition-colors duration-200" />
+              <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle" />
             </div>
           </div>
+
           <div>
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-              Location
-            </label>
+            <label className={labelClass}>Location</label>
             <div className="relative">
               <input
                 type="text"
-                className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="address"
                 value={personalData.address || ""}
                 onChange={handleChangePersonal}
                 placeholder="Your location"
+                className={imgInputClass}
               />
+
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle w-5 sm:w-6 h-5 sm:h-6 hover:text-primary-accent transition-colors duration-200"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle w-5 sm:w-6 h-5 sm:h-6"
                 viewBox="0 0 24 24"
                 fill="none"
               >
@@ -260,42 +266,38 @@ export default function LeftSidebar() {
                   d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
                   stroke="currentColor"
                   strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                 />
+
                 <circle
                   cx="12"
                   cy="9"
                   r="2"
                   stroke="currentColor"
                   strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                 />
               </svg>
             </div>
           </div>
         </div>
 
+        {/* GitHub */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-          <label className="block text-xs sm:text-sm font-medium mb-2 font-roboto bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse text-text-subtitle tracking-tight uppercase">
-              GitHub
-            </label>
+            <label className={labelClass}>GitHub</label>
             <div className="relative">
               <input
                 type="url"
-                className="w-full p-3 pl-10 text-sm sm:text-base border border-[rgba(255,255,255,0.1)] rounded-xl bg-white placeholder-text-subtitle placeholder-shown:bg-[rgba(255,255,255,0.05)] backdrop-blur-sm text-text-title font-roboto focus:ring-2 focus:ring-primary-accent focus:border-primary-accent hover:bg-white hover:text-black transition-all duration-300 shadow-inner"
                 name="github"
                 value={personalData.github || ""}
                 onChange={handleChangePersonal}
                 placeholder="Your GitHub profile"
+                className={imgInputClass}
               />
+
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle w-5 sm:w-6 h-5 sm:h-6 hover:text-primary-accent transition-colors duration-200"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtitle w-5 sm:w-6 h-5 sm:h-6"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg"
               >
                 <path
                   fillRule="evenodd"
