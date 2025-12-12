@@ -84,7 +84,9 @@ const LearningTracker: React.FC = () => {
 
     // ==== Gemini: generate breakdown (sub-skills) for a skill ====
     const generateBreakdownForSkill = useCallback(
+        
         async (skillName: string): Promise<TrackerItem[]> => {
+            console.log("hello");
             if (!geminiClient || !apiKey) {
                 console.warn("Gemini client or API key missing, returning fallback subskills.");
                 return [
@@ -119,7 +121,7 @@ Return ONLY valid JSON in this exact format:
 `.trim();
 
                 const model = geminiClient.getGenerativeModel({
-                    model: "gemini-2.0-flash"
+                    model: "gemini-2.5-flash-lite"
                 });
 
                 const response = await model.generateContent(prompt);
@@ -187,8 +189,8 @@ Return ONLY valid JSON in this exact format:
 
                     if (!existing || !Array.isArray(existing) || existing.length === 0) {
                         // Need to generate
-                        const breakdown = await generateBreakdownForSkill(skillName);
-                        trackerData[skillName] = breakdown;
+                        // const breakdown = await generateBreakdownForSkill(skillName);
+                        // trackerData[skillName] = breakdown;
                         updated = true;
                     }
                 }

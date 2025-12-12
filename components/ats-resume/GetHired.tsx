@@ -32,7 +32,7 @@ export default function GetHired() {
 
   useEffect(() => {
     const api_key = localStorage.getItem("api_key");
-    setApiKey(api_key);
+    setApiKey(api_key || "");
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -151,7 +151,8 @@ export default function GetHired() {
           setAtsData(analysisResult);
         } catch (error) {
           setAnalyzeLoading(false);
-          toast.error(error.message);
+          const errorMessage = error instanceof Error ? error.message : "An error occurred";
+          toast.error(errorMessage);
         }
       };
       get_score();
@@ -204,9 +205,9 @@ export default function GetHired() {
     `;
 
     try {
-      const model = geminiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = geminiClient.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
       const response = await model.generateContent(prompt);
-      const textResponse = response.response.candidates[0].content.parts[0].text;
+      const textResponse = response.response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!textResponse) {
         return { message: "Empty response from Gemini API." };
@@ -224,7 +225,8 @@ export default function GetHired() {
     } catch (error) {
       setAnalyzeLoading(false); // CHANGED: Use analyzeLoading instead of loading
       console.error("Error processing Gemini API response:", error);
-      return { message: "Failed to process Gemini API response.", error: error.message };
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return { message: "Failed to process Gemini API response.", error: errorMessage };
     }
   }
 
@@ -283,9 +285,9 @@ export default function GetHired() {
         `;
 
     try {
-      const model = geminiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = geminiClient.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
       const response = await model.generateContent(prompt);
-      const textResponse = response.response.candidates[0].content.parts[0].text;
+      const textResponse = response.response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!textResponse) {
         return { message: "Empty response from Gemini API." };
@@ -303,7 +305,8 @@ export default function GetHired() {
     } catch (error) {
       setAnalyzeLoading(false); // CHANGED: Use analyzeLoading instead of loading
       console.error("Error processing Gemini API response:", error);
-      return { message: "Failed to process Gemini API response.", error: error.message };
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return { message: "Failed to process Gemini API response.", error: errorMessage };
     }
   }
 
@@ -381,7 +384,7 @@ export default function GetHired() {
             const page = await pdfDocument.getPage(i);
             const textContent = await page.getTextContent();
             const pageText = textContent.items
-              .map((item: unknown) => ("str" in item ? item.str : ""))
+              .map((item: unknown) => ("str" in (item as object) ? (item as any).str : ""))
               .join(" ");
             fullText += pageText + "\n";
           }
@@ -520,7 +523,7 @@ export default function GetHired() {
           <div className="flex items-center space-x-2">
             <span className="bg-[#FFFFFF05] border border-[#ffffff17] px-3 py-1 rounded-full flex items-center text-sm">
               {Array(5)
-                .fill()
+                .fill(null)
                 .map((_, index) => (
                   <img
                     key={index}

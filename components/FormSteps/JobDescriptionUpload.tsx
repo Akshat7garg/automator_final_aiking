@@ -176,14 +176,15 @@ const JobDescriptionUpload = () => {
       toast.success('Analysis completed successfully!');
     } catch (error) {
       console.error('handleSubmit: Error during analysis:', error);
-      let errorMessage = error.message || 'Failed to generate video data';
-      if (error.message.includes('429')) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      let errorMessage = errorObj.message || 'Failed to generate video data';
+      if (errorObj.message.includes('429')) {
         errorMessage = 'YouTube API quota exceeded. Please try again later or upgrade your plan.';
         toast.error(errorMessage);
         setTimeout(() => {
           window.location.href = '/upgrade';
         }, 3000);
-      } else if (error.message.includes('403') || error.message.includes('invalid')) {
+      } else if (errorObj.message.includes('403') || errorObj.message.includes('invalid')) {
         errorMessage = 'Invalid YouTube API key. Please check your API key.';
         toast.error(errorMessage);
         setTimeout(() => {
@@ -193,7 +194,7 @@ const JobDescriptionUpload = () => {
         toast.error(errorMessage);
       }
       setError(errorMessage);
-      setFormStep(FormStep.JOB_DESCRIPTION);
+      setFormStep(FormStep.JOB_DESCRIPTIONS);
       setIsProcessingJDs(false);
     } finally {
       setIsLoading(false);
@@ -275,8 +276,9 @@ const JobDescriptionUpload = () => {
         await handleSubmit();
       } catch (error) {
         console.error('processJobDescriptions: Error processing job descriptions:', error);
-        setError(`Failed to process job descriptions: ${error.message}`);
-        // toast.error(`Processing failed: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setError(`Failed to process job descriptions: ${errorMessage}`);
+        // toast.error(`Processing failed: ${errorMessage}`);
       } finally {
         setIsProcessingJDs(false);
         console.log('processJobDescriptions: Processing finished, isProcessingJDs set to false');
@@ -337,8 +339,9 @@ const JobDescriptionUpload = () => {
       toast.success('Successfully fetched job descriptions!');
     } catch (error) {
       console.error('handleFetchAIJD: Error fetching AI job descriptions:', error);
-      setError(`Failed to fetch job descriptions: ${error.message}`);
-      // toast.error(`Failed to fetch job descriptions: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setError(`Failed to fetch job descriptions: ${errorMessage}`);
+      // toast.error(`Failed to fetch job descriptions: ${errorMessage}`);
       setAiJobDescriptions([]);
       setAiJobDescription('');
     } finally {

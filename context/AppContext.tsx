@@ -4,19 +4,19 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { saveSkillsDataToFirebase, fetchSkillsDataFromFirebase } from '@/services/firebaseService';
 import { AppState } from '@/types/AppContext';
-import { 
-  Resume, 
-  JobDescription, 
-  Phase, 
-  UserProgress, 
+import {
+  Resume,
+  JobDescription,
+  Phase,
+  UserProgress,
   FormStep,
   Milestone,
   Quiz,
   Video
 } from '@/types';
-import { 
-  extractSkillsFromText, 
-  findSkillGaps, 
+import {
+  extractSkillsFromText,
+  findSkillGaps,
   createLearningPath,
   analyzeWithGeminiAI,
   fetchEducationalVideos
@@ -98,7 +98,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         }
       };
     }
-    
+
     case 'ADD_JOB_DESCRIPTION': {
       const { id, text, title, company } = action.payload;
       const skills = extractSkillsFromText(text);
@@ -109,34 +109,34 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         company,
         skills
       };
-      
+
       return {
         ...state,
         jobDescriptions: [...state.jobDescriptions, newJobDescription]
       };
     }
-    
+
     case 'REMOVE_JOB_DESCRIPTION': {
       return {
         ...state,
         jobDescriptions: state.jobDescriptions.filter(job => job.id !== action.payload)
       };
     }
-    
+
     case 'SET_FORM_STEP': {
       return {
         ...state,
         formStep: action.payload
       };
     }
-    
+
     case 'START_ANALYSIS': {
       return {
         ...state,
         isAnalyzing: true
       };
     }
-    
+
     case 'COMPLETE_ANALYSIS': {
       if (!state.resume) {
         return state;
@@ -182,30 +182,30 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         },
         isAnalyzing: false,
         formStep: FormStep.RESULTS,
-        milestones: state.milestones.map(milestone => 
-          milestone.id === 'milestone-1' 
-            ? { ...milestone, isAchieved: true } 
+        milestones: state.milestones.map(milestone =>
+          milestone.id === 'milestone-1'
+            ? { ...milestone, isAchieved: true }
             : milestone
         ),
         isLoading: false
       };
     }
-    
+
     case 'UPDATE_VIDEO_PROGRESS': {
       const { skillId, videoId, progress } = action.payload;
-      
+
       return {
         ...state,
         learningPath: state.learningPath.map(phase => ({
           ...phase,
           skills: phase.skills.map(skill => {
             if (skill.id !== skillId) return skill;
-            
+
             return {
               ...skill,
               videos: skill.videos.map(video => {
                 if (video.id !== videoId) return video;
-                
+
                 return {
                   ...video,
                   progress,
@@ -217,23 +217,23 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         }))
       };
     }
-    
+
     case 'COMPLETE_VIDEO': {
       const { skillId, videoId } = action.payload;
       // console.log('COMPLETE_VIDEO:', { skillId, videoId, completedVideos: state.userProgress.completedVideos });
-      
+
       const newState = {
         ...state,
         learningPath: state.learningPath.map(phase => ({
           ...phase,
           skills: phase.skills.map(skill => {
             if (skill.id !== skillId) return skill;
-            
+
             return {
               ...skill,
               videos: skill.videos.map(video => {
                 if (video.id !== videoId) return video;
-                
+
                 return {
                   ...video,
                   progress: 100,
@@ -250,7 +250,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
             : [videoId] // Fallback if not an array
         }
       };
-      
+
       const skillToCheck = newState.learningPath
         .flatMap(phase => phase.skills)
         .find(skill => skill.id === skillId);
@@ -258,10 +258,10 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       if (skillToCheck && skillToCheck.videos.every(video => video.isCompleted)) {
         return appReducer(newState, { type: 'COMPLETE_SKILL', payload: skillId });
       }
-      
+
       return newState;
     }
-    
+
     case 'COMPLETE_SKILL': {
       const skillId = action.payload;
       const newState = {
@@ -316,13 +316,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
             })),
             milestones: newState.milestones.map(milestone => {
               if (
-                milestone.id === 'milestone-2' && 
+                milestone.id === 'milestone-2' &&
                 phase.id === 'phase-1'
               ) {
                 return { ...milestone, isAchieved: true };
               }
               if (
-                milestone.id === 'milestone-3' && 
+                milestone.id === 'milestone-3' &&
                 phase.id === 'phase-3'
               ) {
                 return { ...milestone, isAchieved: true };
@@ -337,10 +337,10 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         learningPath: updatedPath
       };
     }
-    
+
     case 'UNLOCK_PHASE': {
       const phaseId = action.payload;
-      
+
       return {
         ...state,
         learningPath: state.learningPath.map(phase => ({
@@ -353,13 +353,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         }))
       };
     }
-    
+
     case 'COMPLETE_PHASE': {
       const phaseId = action.payload;
-      
+
       const phaseIndex = state.learningPath.findIndex(phase => phase.id === phaseId);
       const nextPhaseIndex = phaseIndex + 1;
-      
+
       return {
         ...state,
         learningPath: state.learningPath.map((phase, index) => ({
@@ -369,17 +369,17 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         })),
         userProgress: {
           ...state.userProgress,
-          currentPhaseId: 
-            nextPhaseIndex < state.learningPath.length 
-              ? state.learningPath[nextPhaseIndex].id 
+          currentPhaseId:
+            nextPhaseIndex < state.learningPath.length
+              ? state.learningPath[nextPhaseIndex].id
               : state.userProgress.currentPhaseId
         }
       };
     }
-    
+
     case 'ACHIEVE_MILESTONE': {
       const milestoneId = action.payload;
-      
+
       return {
         ...state,
         milestones: state.milestones.map(milestone => ({
@@ -394,7 +394,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         }
       };
     }
-    
+
     case 'SET_SKILL_VIDEOS': {
       const { skillId, videos } = action.payload;
       return {
@@ -408,7 +408,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         }))
       };
     }
-    
+
     case 'SET_STATE_FROM_FIREBASE': {
       // console.log('Setting state from Firebase:', JSON.stringify(action.payload, null, 2));
       return {
@@ -418,18 +418,18 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         isLoading: false
       };
     }
-    
+
     case 'SET_LOADING': {
       return {
         ...state,
         isLoading: action.payload
       };
     }
-    
+
     case 'RESET_STATE': {
       return initialState;
     }
-    
+
 
     default:
       return state;
@@ -477,7 +477,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // console.log('Auth state changed:', user ? `User ${user.uid}` : 'No user');
       dispatch({ type: 'SET_LOADING', payload: true });
-      
+
       if (user) {
         try {
           const skillsData = await fetchSkillsDataFromFirebase(user.uid);
@@ -523,9 +523,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addJobDescription = (text: string, title?: string, company?: string) => {
     const id = `job-${Date.now()}`;
-    dispatch({ 
-      type: 'ADD_JOB_DESCRIPTION', 
-      payload: { id, text, title, company } 
+    dispatch({
+      type: 'ADD_JOB_DESCRIPTION',
+      payload: { id, text, title, company }
     });
   };
 
@@ -552,7 +552,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       router.push('/course/jobdescription');
       return;
     }
-    
+
     try {
       const jobDescriptionTexts = state.jobDescriptions.map(job => job.text);
       const analysisResult = await analyzeWithGeminiAI(
@@ -573,7 +573,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }))
       );
 
-      dispatch({ 
+      dispatch({
         type: 'COMPLETE_ANALYSIS',
         payload: { ...analysisResult, learningPath }
       });
@@ -585,7 +585,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .flatMap(job => job.skills)
         .filter((skill, index, self) => self.indexOf(skill) === index);
       const missingSkills = findSkillGaps(resumeSkills, allJobSkills);
-      
+
       let learningPath = createLearningPath(missingSkills);
       learningPath = await Promise.all(
         learningPath.map(async (phase) => ({
@@ -613,16 +613,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateVideoProgress = (skillId: string, videoId: string, progress: number) => {
-    dispatch({ 
-      type: 'UPDATE_VIDEO_PROGRESS', 
-      payload: { skillId, videoId, progress } 
+    dispatch({
+      type: 'UPDATE_VIDEO_PROGRESS',
+      payload: { skillId, videoId, progress }
     });
   };
 
   const completeVideo = (skillId: string, videoId: string) => {
-    dispatch({ 
-      type: 'COMPLETE_VIDEO', 
-      payload: { skillId, videoId } 
+    dispatch({
+      type: 'COMPLETE_VIDEO',
+      payload: { skillId, videoId }
     });
   };
 

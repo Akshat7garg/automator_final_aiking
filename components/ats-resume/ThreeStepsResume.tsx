@@ -91,9 +91,9 @@ export default function ThreeStepsResume() {
         ${jobData}`; // Your existing prompt
 
     try {
-      const model = geminiClient.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = geminiClient.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
       const response = await model.generateContent(prompt);
-      const textResponse = response.response.candidates[0].content.parts[0].text;
+      const textResponse = response.response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!textResponse) {
         throw new Error("Empty response from Gemini API.");
@@ -212,7 +212,7 @@ export default function ThreeStepsResume() {
     },
   ];
 
-  const stepRefs = useRef([]); // Reference for steps
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]); // Reference for steps
   const [isInView, setIsInView] = useState(false); // State to track visibility of steps
 
 
@@ -247,7 +247,6 @@ export default function ThreeStepsResume() {
   const handleAnalyzeButtonClick = async () => {
     // Step 1: Check if user is logged in
     if (!user) {
-      console.log(user,user?.uid)
       setTimeout(() => {
         window.location.href = "/sign-in";
       }, 2000)
@@ -305,7 +304,9 @@ export default function ThreeStepsResume() {
           {steps.map((step, index) => (
             <div
               key={step.id}
-              ref={(el) => (stepRefs.current[index] = el)} // Assign DOM element
+              ref={(el) => {
+                stepRefs.current[index] = el;
+              }}
               className={`bg-[#FFFFFF05]  border-[#ffffff17] border-[1.5px] rounded-lg p-6 space-y-4 transition-all duration-500 ease-in-out transform ${isInView
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-10"
