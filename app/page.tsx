@@ -12,6 +12,7 @@ import PricingSection from '@/components/pricing/PricingSection';
 import TestimonialSection from "../components/home/TestimonialSection";
 import JobSeeker from "../components/JobSeeker";
 import VideoSection from "../components/home/video";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 // ✅ Define proper type for params
 interface MainpageProps {
@@ -42,6 +43,7 @@ export default function Mainpage({ params }: MainpageProps) {
       <ResumeATSChecker />
       <FAQSection />
       <JobSeeker />
+      <WhatsAppButton />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import HRTestimonialSection from "@/components/hr/HRTestimonialSection";
 import HRVideoSection from "@/components/hr/HRVideoSection";
 import JobSeeker from "@/components/hr/jobseeker";
 import PricingSection from "@/components/hr/pricing";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export default function HRPage() {
   return (
@@ -25,6 +26,7 @@ export default function HRPage() {
       <HRResumeATSChecker />
       <HRFAQSection />
       <JobSeeker />
+      <WhatsAppButton />
     </div>
   );
 }
