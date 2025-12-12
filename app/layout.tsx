@@ -14,7 +14,6 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { TanstackProvider } from "@/components/providers/TanstackProvider";
 import NextTopLoader from "nextjs-toploader";
 
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -36,7 +35,7 @@ export default function RootLayout({
   const paddingClass = hideNavAndFooter ? "pt-1" : "pt-16";
 
   return (
-    <html lang="en">
+    <html lang="en" className="bg-[#11011E]">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextTopLoader
           color="#0FAE96"

@@ -173,7 +173,7 @@ export default function App() {
     return (
         <>
             <style>{`
-                body { background-color: #05010a; }
+                body { background-color: #11011E; }
                 @keyframes fadeInUp { from { opacity: 0; transform: translate(-50%, -40%); } to { opacity: 1; transform: translate(-50%, -50%); } }
                 @keyframes fadeInScale { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
                 @keyframes successPulse { 0%, 100% { box-shadow: 0 0 30px rgba(15, 174, 150, 0.6); transform: translate(-50%, -50%) scale(1.15); } 50% { box-shadow: 0 0 60px rgba(15, 174, 150, 1); transform: translate(-50%, -50%) scale(1.2); } }

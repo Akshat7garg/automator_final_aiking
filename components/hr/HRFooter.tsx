@@ -39,7 +39,7 @@ const Footer = () => {
     <footer
       ref={footerRef}
       className={`text-gray-300 py-12 sm:py-16 transition-all duration-700 ease-in-out 
-      bg-gradient-to-b from-[#11011E] to-[#1A0435] border-t border-gray-800/30 
+      bg-gradient-to-b from-[#11011E] to-[#1A0435]
       ${isInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
@@ -120,7 +120,7 @@ const Footer = () => {
   );
 };
 
-const FooterLink = ({ href, text }) => (
+const FooterLink = ({ href, text }: { href: string, text: string }) => (
   <li>
     <Link
       href={href}

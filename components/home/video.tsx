@@ -48,7 +48,7 @@ const VideoSection = () => {
           ) : (
             <iframe
               className="w-full h-full relative z-10"
-              src="https://www.youtube.com/embed/z6JgvamQCb0?rel=0&autoplay=1"
+              src="https://www.youtube.com/embed/wH5qO0f-kKA?rel=0&autoplay=1"
               title="Demo Video"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
