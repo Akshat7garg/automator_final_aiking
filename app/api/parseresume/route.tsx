@@ -167,6 +167,7 @@ const validateCandidate = (candidate: Omit<Candidate, 'id' | 'approved' | 'resum
     experience: typeof candidate.experience === 'number' && candidate.experience >= 0 ? Math.round(candidate.experience) : 0,
     jobTitle: candidate.jobTitle && typeof candidate.jobTitle === 'string' && candidate.jobTitle.trim() !== '' && candidate.jobTitle.trim().toLowerCase() !== 'n/a' ? candidate.jobTitle.trim() : 'N/A',
     education: candidate.education && typeof candidate.education === 'string' && candidate.education.trim() !== '' && candidate.education.trim().toLowerCase() !== 'n/a' ? candidate.education.trim() : 'N/A',
+    uploadedAt: ''
   };
 };
 
@@ -258,6 +259,7 @@ const parseWithGemini = async (
         experience: 0,
         jobTitle: 'API Key Missing',
         education: 'N/A',
+        uploadedAt: ''
       });
     }
 
@@ -279,7 +281,7 @@ const parseWithGemini = async (
     }
 
     console.log("Attempting Gemini generateContent call...");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     // Embed text correctly within the markdown block for Gemini
     const promptWithText = prompt.replace('```\n      ${text}\n      ```', '```json\n' + text + '\n```');
@@ -299,6 +301,7 @@ const parseWithGemini = async (
         experience: 0,
         jobTitle: 'API Error',
         education: 'N/A',
+        uploadedAt: ''
       });
     }
 
@@ -322,6 +325,7 @@ const parseWithGemini = async (
         experience: 0,
         jobTitle: 'Empty Response',
         education: 'N/A',
+        uploadedAt: ''
       });
     }
 
@@ -338,6 +342,7 @@ const parseWithGemini = async (
         experience: parsed.experienceYears || 0,
         jobTitle: parsed.jobTitle || 'N/A',
         education: parsed.education || 'N/A',
+        uploadedAt: ''
       });
     } catch (jsonParseError) {
       console.error('Failed to parse Gemini output as JSON:', jsonParseError);
@@ -353,6 +358,7 @@ const parseWithGemini = async (
         experience: 0,
         jobTitle: 'JSON Parse Failed',
         education: 'N/A',
+        uploadedAt: ''
       });
     }
   } catch (error) {
@@ -371,6 +377,7 @@ const parseWithGemini = async (
         experience: 0,
         jobTitle: 'Content Blocked',
         education: 'N/A',
+        uploadedAt: ''
       });
     }
 
@@ -385,6 +392,7 @@ const parseWithGemini = async (
       experience: 0,
       jobTitle: 'Parsing Failed',
       education: 'N/A',
+      uploadedAt: ''
     });
   }
 };
@@ -510,6 +518,7 @@ export async function POST(req: NextRequest) {
                 education: 'N/A',
                 approved: false,
                 resumeUrl: 'N/A',
+                uploadedAt: new Date().toISOString(),
               };
               await saveCandidateToRealtimeDatabase(candidate);
               batchResults.push(candidate);
@@ -525,6 +534,7 @@ export async function POST(req: NextRequest) {
               id: id,
               approved: false,
               resumeUrl: 'N/A',
+              uploadedAt: new Date().toISOString(),
             };
             console.log(`Gemini parsing attempted for ${file.name}. Result name: ${candidate.name}, Score: ${candidate.score}`);
 
@@ -559,7 +569,8 @@ export async function POST(req: NextRequest) {
                 jobTitle: 'Error',
                 education: 'N/A',
                 approved: false,
-                resumeUrl: 'N/A'
+                resumeUrl: 'N/A',
+                uploadedAt: new Date().toISOString()
               };
             } else if (candidate.resumeUrl === undefined) {
               candidate.resumeUrl = 'Upload Failed';

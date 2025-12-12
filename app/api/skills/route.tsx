@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     // Prepare data for Gemini
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
     const prompt = `
       You are an AI assistant specializing in job applications.
