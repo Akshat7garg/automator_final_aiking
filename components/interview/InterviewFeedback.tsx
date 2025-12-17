@@ -4,7 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Star, Download, Video } from "lucide-react";
-import type { SessionType } from "@/pages/Interview";
+// import type { SessionType } from "@/pages/Interview";
+import { useToast } from "@/components/ui/use-toast";
+
+interface SessionType {
+  feedback: {
+    strengths: string[];
+    improvements: string[];
+    overallScore: number;
+    transcript?: {
+      question: string;
+      answer: string;
+    }[];
+    recording?: string[];
+  };
+  transcripts?: {
+    question: string;
+    answer: string;
+  }[];
+  recordings?: string[];
+  role?: string;
+}
 
 interface InterviewFeedbackProps {
   session: SessionType | null;
@@ -12,6 +32,7 @@ interface InterviewFeedbackProps {
 
 export const InterviewFeedback: React.FC<InterviewFeedbackProps> = ({ session }) => {
   const [activeTab, setActiveTab] = useState<string>("summary");
+  const { toast } = useToast();
 
   if (!session || !session.feedback) {
     return (
@@ -27,7 +48,7 @@ export const InterviewFeedback: React.FC<InterviewFeedbackProps> = ({ session })
     strengths: session.feedback.strengths || [],
     improvements: session.feedback.improvements || [],
     overallScore: session.feedback.overallScore || 0,
-    transcript: session.feedback.transcript || session.transcript || [],
+    transcript: session.feedback.transcript || session.transcripts || [],
     recording: session.recordings?.[0] || session.feedback.recording?.[0], // Use recordings first, fallback to feedback.recording
   };
 
@@ -69,33 +90,70 @@ Recording:
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `interview-feedback-${
-      new Date().toISOString().split("T")[0]
-    }.txt`;
+    a.download = `interview-feedback-${new Date().toISOString().split("T")[0]
+      }.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const downloadVideo = () => {
+  const downloadVideo = async () => {
     if (!recording) return;
 
-    const a = document.createElement("a");
-    a.href = recording;
-    a.download = `interview-recording-${
-      new Date().toISOString().split("T")[0]
-    }.webm`; // Changed to .webm to match recorder MIME type
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      toast({
+        title: "Starting Download",
+        description: "Preparing your video file...",
+      });
+
+      // Use our own API proxy to fetch the file, bypassing CORS issues
+      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(recording)}`;
+
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `interview-recording-${new Date().toISOString().split("T")[0]}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      toast({
+        title: "Download Complete",
+        description: "Your recording has been downloaded.",
+      });
+    } catch (err) {
+      console.warn("Proxy download failed, trying direct link fallback:", err);
+
+      // Fallback: Open in new tab
+      const a = document.createElement("a");
+      a.href = recording;
+      a.target = "_blank";
+      a.download = `interview-recording-${new Date().toISOString().split("T")[0]}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      toast({
+        title: "Download Fallback",
+        description: "Direct download failed. Opened video in a new tab - you can save it from there.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <div className="relative">
       <div className="absolute -top-20 -left-20 w-64 h-64 bg-[#7000FF] blur-[180px] opacity-25 rounded-full pointer-events-none"></div>
       <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#FF00C7] blur-[180px] opacity-25 rounded-full pointer-events-none"></div>
-      
+
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl md:text-3xl font-bold font-raleway text-[#ECF1F0]">Interview Feedback</h2>
         <div className="flex space-x-3">
@@ -151,20 +209,20 @@ Recording:
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full grid grid-cols-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
-          <TabsTrigger 
-            value="summary" 
+          <TabsTrigger
+            value="summary"
             className="data-[state=active]:bg-[rgba(15,174,150,0.1)] data-[state=active]:text-[#0FAE96] data-[state=active]:shadow-none text-[#B6B6B6] hover:text-[#ECF1F0] transition duration-200"
           >
             Feedback Summary
           </TabsTrigger>
-          <TabsTrigger 
-            value="transcript" 
+          <TabsTrigger
+            value="transcript"
             className="data-[state=active]:bg-[rgba(15,174,150,0.1)] data-[state=active]:text-[#0FAE96] data-[state=active]:shadow-none text-[#B6B6B6] hover:text-[#ECF1F0] transition duration-200"
           >
             Transcript
           </TabsTrigger>
-          <TabsTrigger 
-            value="recording" 
+          <TabsTrigger
+            value="recording"
             className="data-[state=active]:bg-[rgba(15,174,150,0.1)] data-[state=active]:text-[#0FAE96] data-[state=active]:shadow-none text-[#B6B6B6] hover:text-[#ECF1F0] transition duration-200"
           >
             Recording
