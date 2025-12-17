@@ -16,82 +16,87 @@ console.log("⚠️ Running on Localhost:", isLocalhost);
 
 // --- Firebase Initialization ---
 if (isClient && isFirebaseConfigured && app) {
-    console.log("✅ Firebase app is configured and running on client side.");
+  console.log("✅ Firebase app is configured and running on client side.");
 
-    if (isLocalhost && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true") {
-         console.log("Emulator mode flag (NEXT_PUBLIC_USE_FIREBASE_EMULATOR) is enabled on localhost.");
-         if (!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_EMULATOR_HOST && !process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST) {
-              console.warn("⚠️ NEXT_PUBLIC_USE_FIREBASE_EMULATOR is true, but no emulator host env vars found. Check your .env.local file for NEXT_PUBLIC_FIREISE_DATABASE_EMULATOR_HOST and NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST.");
-              toast({
-                title: "Emulator Hosts Missing",
-                description: "Emulator flag is set, but host variables are missing. Check .env.local",
-                variant: "destructive",
-              });
-         } else {
-             if (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_EMULATOR_HOST) {
-                 console.log(`✅ RTDB Emulator host specified: ${process.env.NEXT_PUBLIC_FIREBASE_DATABASE_EMULATOR_HOST}`);
-             }
-             if (process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST) {
-                 console.log(`✅ Storage Emulator host specified: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST}`);
-             } else {
-                 console.warn("⚠️ Storage Emulator host not specified. Uploads may fail.");
-                 toast({
-                   title: "Storage Emulator Host Missing",
-                   description: "NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST not set. Check .env.local.",
-                   variant: "destructive",
-                 });
-             }
-             console.log("Firebase SDK will attempt to connect to specified emulators automatically.");
-         }
+  if (isLocalhost && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true") {
+    console.log("Emulator mode flag (NEXT_PUBLIC_USE_FIREBASE_EMULATOR) is enabled on localhost.");
+    if (!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_EMULATOR_HOST && !process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST) {
+      console.warn("⚠️ NEXT_PUBLIC_USE_FIREBASE_EMULATOR is true, but no emulator host env vars found. Check your .env.local file for NEXT_PUBLIC_FIREISE_DATABASE_EMULATOR_HOST and NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST.");
+      toast({
+        title: "Emulator Hosts Missing",
+        description: "Emulator flag is set, but host variables are missing. Check .env.local",
+        variant: "destructive",
+      });
     } else {
-         console.log("Emulator mode flag not enabled or not on localhost. Connecting to production Firebase.");
+      if (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_EMULATOR_HOST) {
+        console.log(`✅ RTDB Emulator host specified: ${process.env.NEXT_PUBLIC_FIREBASE_DATABASE_EMULATOR_HOST}`);
+      }
+      if (process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST) {
+        console.log(`✅ Storage Emulator host specified: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST}`);
+      } else {
+        console.warn("⚠️ Storage Emulator host not specified. Uploads may fail.");
+        toast({
+          title: "Storage Emulator Host Missing",
+          description: "NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST not set. Check .env.local.",
+          variant: "destructive",
+        });
+      }
+      console.log("Firebase SDK will attempt to connect to specified emulators automatically.");
     }
+  } else {
+    console.log("Emulator mode flag not enabled or not on localhost. Connecting to production Firebase.");
+  }
 
-    try {
-       db = getDatabase(app);
-       console.log("✅ Firebase Realtime Database initialized.");
-    } catch(error: any) {
-        console.error("❌ Failed to initialize Firebase Realtime Database:", error.message, error.stack);
-        db = null;
-         toast({
-           title: "RTDB Initialization Failed",
-           description: `Could not initialize RTDB. Error: ${error.message}`,
-           variant: "destructive",
-         });
-    }
+  try {
+    db = getDatabase(app);
+    console.log("✅ Firebase Realtime Database initialized.");
+  } catch (error: any) {
+    console.error("❌ Failed to initialize Firebase Realtime Database:", error.message, error.stack);
+    db = null;
+    toast({
+      title: "RTDB Initialization Failed",
+      description: `Could not initialize RTDB. Error: ${error.message}`,
+      variant: "destructive",
+    });
+  }
 
-    try {
-        storageInstance = getStorage(app);
-        console.log("✅ Firebase Storage initialized.");
-    } catch(error: any) {
-        console.error("❌ Failed to initialize Firebase Storage:", error.message, error.stack);
-        storageInstance = null;
-         toast({
-           title: "Storage Initialization Failed",
-           description: `Could not initialize Storage. Error: ${error.message}`,
-           variant: "destructive",
-         });
-    }
+  try {
+    storageInstance = getStorage(app);
+    console.log("✅ Firebase Storage initialized.");
+  } catch (error: any) {
+    console.error("❌ Failed to initialize Firebase Storage:", error.message, error.stack);
+    storageInstance = null;
+    toast({
+      title: "Storage Initialization Failed",
+      description: `Could not initialize Storage. Error: ${error.message}`,
+      variant: "destructive",
+    });
+  }
 
 } else {
-    console.log("⚠️ Firebase app is not configured or not on client side. Firebase services will not be initialized.");
+  console.log("⚠️ Firebase app is not configured or not on client side. Firebase services will not be initialized.");
 }
 
 console.log("⚠️ Realtime Database Initialized (post-setup):", !!db);
 console.log("⚠️ Storage Initialized (post-setup):", !!storageInstance);
 
-export interface StoredSession extends Omit<SessionType, 'recording'> {
+export interface StoredSession extends Omit<SessionType, 'recording' | 'feedback'> {
   recording?: string[] | null;
-  recordingUrl?: string;
+  recordingUrl?: string | null;
+
   jobDescription?: string;
-  email? :string;
-  name?:string;
+  email?: string;
+  name?: string;
+
   timestamp: number;
+
   feedback?: {
     recording?: string[] | null;
     overallScore?: number;
-    strengths?: string[];
-    improvements?: string[];
+
+    strengths: string[];
+    improvements: string[];
+
     transcript?: Array<{
       isCompleted: boolean;
       jobDescription: string;
@@ -133,15 +138,15 @@ export const storeRecording = async (sessionId: string, recordingBlobs: Blob[]):
 
     let videoBlob: Blob | undefined;
     if (isClient) {
-         videoBlob = new Blob(recordingBlobs, { type: "video/webm" });
-         if (videoBlob.size === 0) {
-             console.warn("storeRecording: Video Blob is empty after creation.");
-             toast({ title: "Recording Error", description: "Captured recording data is empty.", variant: "destructive" });
-             return undefined;
-         }
-         console.log(`storeRecording: Created video blob of size ${videoBlob.size} bytes.`);
+      videoBlob = new Blob(recordingBlobs, { type: "video/webm" });
+      if (videoBlob.size === 0) {
+        console.warn("storeRecording: Video Blob is empty after creation.");
+        toast({ title: "Recording Error", description: "Captured recording data is empty.", variant: "destructive" });
+        return undefined;
+      }
+      console.log(`storeRecording: Created video blob of size ${videoBlob.size} bytes.`);
     } else {
-         console.warn("storeRecording: Not on client side, cannot create local video blob for fallback.");
+      console.warn("storeRecording: Not on client side, cannot create local video blob for fallback.");
     }
 
     if (!isFirebaseConfigured || !storageInstance) {
@@ -153,19 +158,19 @@ export const storeRecording = async (sessionId: string, recordingBlobs: Blob[]):
       });
 
       if (isClient && videoBlob && videoBlob.size > 0) {
-          recordingUrl = URL.createObjectURL(videoBlob);
-          console.log(`storeRecording: Returning local URL: ${recordingUrl}.`);
-          return recordingUrl;
+        recordingUrl = URL.createObjectURL(videoBlob);
+        console.log(`storeRecording: Returning local URL: ${recordingUrl}.`);
+        return recordingUrl;
       } else {
-          console.warn("storeRecording: Cannot create local URL fallback (not on client, or empty/missing blob).");
-          return undefined;
+        console.warn("storeRecording: Cannot create local URL fallback (not on client, or empty/missing blob).");
+        return undefined;
       }
     }
 
     if (!isClient || !videoBlob) {
-         console.error("storeRecording: Logic error - Attempting Firebase upload but not on client or no videoBlob.");
-         toast({ title: "Recording Error", description: "Internal error before upload attempt.", variant: "destructive" });
-         return undefined;
+      console.error("storeRecording: Logic error - Attempting Firebase upload but not on client or no videoBlob.");
+      toast({ title: "Recording Error", description: "Internal error before upload attempt.", variant: "destructive" });
+      return undefined;
     }
 
     const uploadToStorage = async (): Promise<string> => {
@@ -197,12 +202,12 @@ export const storeRecording = async (sessionId: string, recordingBlobs: Blob[]):
           variant: "default",
         });
         if (isClient && videoBlob && videoBlob.size > 0) {
-             recordingUrl = URL.createObjectURL(videoBlob);
-             console.log(`storeRecording (localhost): Falling back to local URL: ${recordingUrl}.`);
-             return recordingUrl;
+          recordingUrl = URL.createObjectURL(videoBlob);
+          console.log(`storeRecording (localhost): Falling back to local URL: ${recordingUrl}.`);
+          return recordingUrl;
         } else {
-             console.warn("storeRecording (localhost): Cannot create local URL fallback (not on client or empty blob) after upload failure.");
-             return undefined;
+          console.warn("storeRecording (localhost): Cannot create local URL fallback (not on client or empty blob) after upload failure.");
+          return undefined;
         }
       }
     } else {
@@ -221,23 +226,23 @@ export const storeRecording = async (sessionId: string, recordingBlobs: Blob[]):
     });
 
     if (isClient && recordingBlobs && recordingBlobs.length > 0) {
-        try {
-            const videoBlob = new Blob(recordingBlobs, { type: "video/webm" });
-             if (videoBlob.size > 0) {
-                recordingUrl = URL.createObjectURL(videoBlob);
-                console.log(`storeRecording: Falling back to local URL due to error: ${recordingUrl}`);
-                return recordingUrl;
-             } else {
-                 console.warn("storeRecording: Blob is empty even in error fallback. Cannot create local URL.");
-                 return undefined;
-             }
-        } catch (blobError: any) {
-            console.error("storeRecording: Failed to create local URL during error fallback:", blobError.message);
-            return undefined;
+      try {
+        const videoBlob = new Blob(recordingBlobs, { type: "video/webm" });
+        if (videoBlob.size > 0) {
+          recordingUrl = URL.createObjectURL(videoBlob);
+          console.log(`storeRecording: Falling back to local URL due to error: ${recordingUrl}`);
+          return recordingUrl;
+        } else {
+          console.warn("storeRecording: Blob is empty even in error fallback. Cannot create local URL.");
+          return undefined;
         }
+      } catch (blobError: any) {
+        console.error("storeRecording: Failed to create local URL during error fallback:", blobError.message);
+        return undefined;
+      }
     } else {
-         console.warn("storeRecording: Not on client or no valid blobs available for local URL fallback.");
-         return undefined;
+      console.warn("storeRecording: Not on client or no valid blobs available for local URL fallback.");
+      return undefined;
     }
   }
 };
@@ -247,9 +252,9 @@ export const saveSession = async (session: Omit<StoredSession, 'timestamp'>): Pr
   const name = localStorage.getItem("name") || "";
   const timestamp = Date.now();
   const sessionId = session.sessionId || uuidv4();
-  const sessionData: StoredSession = { 
-    ...session, 
-    sessionId, 
+  const sessionData: StoredSession = {
+    ...session,
+    sessionId,
     timestamp,
     name,
     email,
@@ -274,9 +279,9 @@ export const saveSession = async (session: Omit<StoredSession, 'timestamp'>): Pr
         console.log(`saveSession: Session ${sessionId} metadata saved locally.`);
         toast({ title: "Session Metadata Saved", description: "Metadata saved locally." });
       } else {
-         console.warn("saveSession: Cannot save locally outside of client environment.");
-         toast({ title: "Save Failed", description: "Cannot save outside client environment.", variant: "destructive"});
-         throw new Error("Cannot save session metadata outside client environment without Firebase.");
+        console.warn("saveSession: Cannot save locally outside of client environment.");
+        toast({ title: "Save Failed", description: "Cannot save outside client environment.", variant: "destructive" });
+        throw new Error("Cannot save session metadata outside client environment without Firebase.");
       }
       return;
     }
@@ -317,15 +322,15 @@ export const saveSession = async (session: Omit<StoredSession, 'timestamp'>): Pr
       description: `Could not save metadata to cloud. Error: ${error.message}`,
       variant: "destructive"
     });
-     if (isClient) {
-        const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
-        localSessions[sessionId] = sessionData;
-        localStorage.setItem('interviewSessions', JSON.stringify(localSessions));
-        console.log(`saveSession: Session ${sessionId} metadata saved locally as fallback.`);
-     } else {
-         console.warn("saveSession: Cannot save locally as fallback outside of client environment.");
-         throw new Error(`Failed to save session metadata. Error: ${error.message}`);
-     }
+    if (isClient) {
+      const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
+      localSessions[sessionId] = sessionData;
+      localStorage.setItem('interviewSessions', JSON.stringify(localSessions));
+      console.log(`saveSession: Session ${sessionId} metadata saved locally as fallback.`);
+    } else {
+      console.warn("saveSession: Cannot save locally as fallback outside of client environment.");
+      throw new Error(`Failed to save session metadata. Error: ${error.message}`);
+    }
   }
 };
 
@@ -340,18 +345,18 @@ export const saveSessionWithRecording = async (session: Omit<StoredSession, 'tim
     sessionId,
     timestamp,
     recording: null,
-    recordingUrl: undefined,
-    feedback: session.feedback ? { 
-      ...session.feedback, 
+    recordingUrl: null,
+    feedback: session.feedback ? {
+      ...session.feedback,
       recording: null,
       overallScore: session.feedback.overallScore ?? 0,
       strengths: session.feedback.strengths ?? [],
       improvements: session.feedback.improvements ?? [],
       transcript: session.feedback.transcript ?? []
-    } : { 
-      recording: null, 
-      overallScore: 0, 
-      strengths: [], 
+    } : {
+      recording: null,
+      overallScore: 0,
+      strengths: [],
       improvements: [],
       transcript: []
     },
@@ -365,16 +370,14 @@ export const saveSessionWithRecording = async (session: Omit<StoredSession, 'tim
     recordingUrl = await storeRecording(sessionId, recordingBlobs);
 
     if (recordingUrl !== undefined) {
-      sessionData.recordingUrl = recordingUrl;
+      sessionData.recordingUrl = recordingUrl || null;
       sessionData.recording = [recordingUrl];
-      sessionData.feedback = { 
-        ...sessionData.feedback, 
-        recording: [recordingUrl],
-        overallScore: sessionData.feedback.overallScore ?? 0,
-        strengths: sessionData.feedback.strengths ?? [],
-        improvements: sessionData.feedback.improvements ?? [],
-        transcript: sessionData.feedback.transcript ?? []
-      };
+      if (sessionData.feedback) {
+        sessionData.feedback = {
+          ...sessionData.feedback,
+          recording: [recordingUrl],
+        };
+      }
       console.log(`saveSessionWithRecording: Recording URL obtained from storeRecording: ${recordingUrl}.`);
     } else {
       console.warn("saveSessionWithRecording: storeRecording did not return a URL. Session metadata will be saved without recording URL.");
@@ -397,7 +400,7 @@ export const saveSessionWithRecording = async (session: Omit<StoredSession, 'tim
         toast({ title: "Session Saved", description: "Session data saved locally." + (recordingUrl ? " Video available locally." : "") });
       } else {
         console.warn("saveSessionWithRecording: Cannot save locally outside of client environment.");
-        toast({ title: "Save Failed", description: "Cannot save outside client environment.", variant: "destructive"});
+        toast({ title: "Save Failed", description: "Cannot save outside client environment.", variant: "destructive" });
         throw new Error("Cannot save session with recording outside client environment without Firebase.");
       }
       return recordingUrl;
@@ -424,11 +427,11 @@ export const saveSessionWithRecording = async (session: Omit<StoredSession, 'tim
       console.log(`saveSessionWithRecording: Not on client side, only saving full session data to interviews/${sessionId}.`);
     }
 
-    toast({ 
-      title: "Session Saved", 
-      description: "Session data saved to cloud." + 
-        (recordingUrl && !recordingUrl.startsWith('blob:') ? " Video uploaded." : "") + 
-        (recordingUrl && recordingUrl.startsWith('blob:') ? " Video saved locally only." : "") 
+    toast({
+      title: "Session Saved",
+      description: "Session data saved to cloud." +
+        (recordingUrl && !recordingUrl.startsWith('blob:') ? " Video uploaded." : "") +
+        (recordingUrl && recordingUrl.startsWith('blob:') ? " Video saved locally only." : "")
     });
 
     // Remove hr_code from localStorage if it exists
@@ -487,14 +490,14 @@ export const getSession = async (sessionId: string): Promise<StoredSession | nul
       description: `Could not retrieve session from cloud. Error: ${error.message}. Checking local storage.`,
       variant: "destructive"
     });
-     if (isClient) {
-        const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
-        console.log(`getSession: Retrieved session ${sessionId} from local storage as fallback.`);
-        return localSessions[sessionId] || null;
-     } else {
-        console.warn("getSession: Cannot retrieve locally as fallback outside of client environment.");
-        throw new Error(`Failed to get session. Error: ${error.message}`);
-     }
+    if (isClient) {
+      const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
+      console.log(`getSession: Retrieved session ${sessionId} from local storage as fallback.`);
+      return localSessions[sessionId] || null;
+    } else {
+      console.warn("getSession: Cannot retrieve locally as fallback outside of client environment.");
+      throw new Error(`Failed to get session. Error: ${error.message}`);
+    }
   }
 };
 
@@ -503,17 +506,17 @@ export const getAllSessions = async (): Promise<StoredSession[]> => {
   try {
     if (!isFirebaseConfigured || !db) {
       console.log("getAllSessions: Firebase or RTDB not configured/initialized. Retrieving all sessions locally.");
-       if (isClient) {
-            const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
-            const sessions = Object.values(localSessions).filter(
-              (s): s is StoredSession => typeof s === 'object' && s !== null && 'sessionId' in s && 'timestamp' in s
-            ).sort((a, b) => b.timestamp - a.timestamp);
-            console.log(`getAllSessions: Retrieved ${sessions.length} sessions from local storage.`);
-            return sessions;
-       } else {
-           console.warn("getAllSessions: Cannot retrieve locally outside of client environment.");
-           return [];
-       }
+      if (isClient) {
+        const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
+        const sessions = Object.values(localSessions).filter(
+          (s): s is StoredSession => typeof s === 'object' && s !== null && 'sessionId' in s && 'timestamp' in s
+        ).sort((a, b) => b.timestamp - a.timestamp);
+        console.log(`getAllSessions: Retrieved ${sessions.length} sessions from local storage.`);
+        return sessions;
+      } else {
+        console.warn("getAllSessions: Cannot retrieve locally outside of client environment.");
+        return [];
+      }
     }
 
     console.log("getAllSessions: Attempting to retrieve all sessions from Realtime Database.");
@@ -539,15 +542,15 @@ export const getAllSessions = async (): Promise<StoredSession[]> => {
       variant: "destructive"
     });
     if (isClient) {
-        const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
-        const sessions = Object.values(localSessions).filter(
-          (s): s is StoredSession => typeof s === 'object' && s !== null && 'sessionId' in s && 'timestamp' in s
-        ).sort((a, b) => b.timestamp - a.timestamp);
-        console.log(`getAllSessions: Retrieved ${sessions.length} sessions from local storage as fallback.`);
-        return sessions;
+      const localSessions = JSON.parse(localStorage.getItem('interviewSessions') || '{}');
+      const sessions = Object.values(localSessions).filter(
+        (s): s is StoredSession => typeof s === 'object' && s !== null && 'sessionId' in s && 'timestamp' in s
+      ).sort((a, b) => b.timestamp - a.timestamp);
+      console.log(`getAllSessions: Retrieved ${sessions.length} sessions from local storage as fallback.`);
+      return sessions;
     } else {
-        console.warn("getAllSessions: Cannot retrieve locally as fallback outside of client environment.");
-        throw new Error(`Failed to get all sessions. Error: ${error.message}`);
+      console.warn("getAllSessions: Cannot retrieve locally as fallback outside of client environment.");
+      throw new Error(`Failed to get all sessions. Error: ${error.message}`);
     }
   }
 };
@@ -562,9 +565,9 @@ export const clearSessions = async (): Promise<void> => {
         console.log("clearSessions: All local sessions cleared.");
         toast({ title: "Sessions Cleared", description: "All local sessions have been removed." });
       } else {
-         console.warn("clearSessions: Cannot clear locally outside of client environment.");
-         toast({ title: "Clear Failed", description: "Cannot clear outside client environment.", variant: "destructive"});
-         throw new Error("Cannot clear sessions outside client environment without Firebase.");
+        console.warn("clearSessions: Cannot clear locally outside of client environment.");
+        toast({ title: "Clear Failed", description: "Cannot clear outside client environment.", variant: "destructive" });
+        throw new Error("Cannot clear sessions outside client environment without Firebase.");
       }
       return;
     }
