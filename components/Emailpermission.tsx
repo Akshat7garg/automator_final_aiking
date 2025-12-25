@@ -39,10 +39,10 @@ const EmailPermission = () => {
           // setTimeout(() => {
           //   window.location.href = "/email_auth";
           // }, 2000);
-          
+
         } else {
           const hasPermission = localStorage.getItem("emailPermissionGranted") === "true";
-          console.log(hasPermission,"va")
+          console.log(hasPermission, "va")
           if (!hasPermission) {
             toast.info("For security reasons, please verify your email again.");
             setIsGranted(false);
@@ -101,9 +101,8 @@ const EmailPermission = () => {
             <button
               onClick={handleGrantAccess}
               disabled={isGranted}
-              className={`px-8 py-3 rounded-lg font-medium flex items-center gap-2 transition-all ${
-                isGranted ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
-              }`}
+              className={`px-8 py-3 rounded-lg font-medium flex items-center gap-2 transition-all ${isGranted ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
+                }`}
             >
               {isGranted ? (
                 <>
