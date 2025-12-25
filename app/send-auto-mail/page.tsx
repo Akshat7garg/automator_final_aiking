@@ -24,6 +24,9 @@ const Page = () => {
   const [gemini_key, setGeminiKey] = useState("");
   const [emailLimitReached, setEmailLimitReached] = useState(false);
   const [resume, setResume] = useState<string>("");
+  const [showModal, setShowModal] = useState(false);
+  const [subject, setSubject] = useState(""); // Default empty
+  const [body, setBody] = useState(""); // Default empty
   const resumeFetched = useRef(false);
   const hasRun = useRef(false);
 
@@ -172,7 +175,7 @@ const Page = () => {
   }, [uid]);
 
   // Step 4: Reusable email sending function with validation
-  const sendEmail = async (companyEmail: string) => {
+  const sendEmail = async (companyEmail: string, subjectParam?: string, bodyParam?: string) => {
     if (!userEmail) {
       toast.error("Sender email is missing.");
       return false;
@@ -190,6 +193,22 @@ const Page = () => {
       return false;
     }
 
+    const finalSubject = subjectParam || ""; // Custom subject or empty
+    const finalBody = bodyParam || ""; // Custom body or empty (no default "hello")
+
+    // Debug log to check what's being sent
+    console.log('Sending email to:', companyEmail);
+    console.log('Subject:', finalSubject);
+    console.log('Body:', finalBody);
+    console.log('Full payload:', {
+      sender_email: userEmail,
+      company_email: companyEmail,
+      resume_link: resume,
+      sender_name: userName,
+      subject: finalSubject,
+      text: finalBody,
+    });
+
     try {
       const response = await fetch("https://send-auto-email-user-render.onrender.com/send-job-application", {
         method: "POST",
@@ -198,7 +217,9 @@ const Page = () => {
           company_email: companyEmail,
           resume_link: resume,
           sender_name: userName,
-          text: "hello",
+          subject: finalSubject,
+          text: finalBody,
+          body: finalBody
         }),
         headers: {
           "Content-Type": "application/json",
@@ -206,7 +227,7 @@ const Page = () => {
       });
 
       if (response.ok) {
-        console.log(`Email sent to ${companyEmail}`);
+        console.log(`Email sent successfully to ${companyEmail}`);
         return true;
       } else {
         const data = await response.json();
@@ -230,19 +251,108 @@ const Page = () => {
     }
   };
 
-  // Step 5: Authentication email sending
-  useEffect(() => {
-    if (!userEmail || !userName || !resumeFetched.current || emailLimitReached) return;
+  // Batch email sending function
+  const sendBatchEmails = async (sub: string, bod: string) => {
+    try {
+      let sentEmailCount = 0;
+      const emailCountRef = ref(db, `user/${uid}/Payment/email_count`);
+      const snapshot = await get(emailCountRef);
+      let existingCount = snapshot.exists() ? snapshot.val() : 0;
+      console.log("Existing email count:", existingCount);
 
-    const checkVerifyEmail = async () => {
-      const success = await sendEmail("suman85bera@gmail.com");
-      if (!success) {
-        console.error("Authentication email failed.");
+      for (const email of emailArray) {
+        if (existingCount + sentEmailCount >= 10000) {
+          setEmailLimitReached(true);
+          toast.warning(
+            <div className="p-4 bg-gradient-to-r from-purple-800 via-pink-600 to-red-500 rounded-xl shadow-lg text-white">
+              <h2 className="text-lg font-bold">💼 Email Limit Reached</h2>
+              <p className="text-sm mt-1">
+                You've hit the <span className="font-semibold">10000 email</span> limit on your free plan.
+              </p>
+              <p className="text-sm">
+                Upgrade to <span className="underline font-semibold">Premium</span> to continue sending job applications automatically.
+              </p>
+            </div>,
+            { autoClose: 8000 }
+          );
+          break;
+        }
+
+        const success = await sendEmail(email, sub, bod);
+        if (success) {
+          sentEmailCount += 1;
+          await set(emailCountRef, existingCount + sentEmailCount);
+          console.log(`Updated email count to ${existingCount + sentEmailCount}`);
+
+          // Save company details to Firebase under hr_marketing_data with a unique key
+          const company = companies.find((c) => c.email === email);
+          if (company) {
+            const marketingRef = ref(db, "hr_marketing_data");
+            const newCompanyRef = push(marketingRef);
+            await set(newCompanyRef, {
+              companyName: company.company,
+              email: company.email,
+              isDownloaded: false,
+            });
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
-    };
 
-    checkVerifyEmail();
-  }, [userEmail, userName, resume]);
+      // Only clear localStorage after all emails are sent and UI is updated
+      if (sentEmailCount > 0) {
+        localStorage.removeItem("companies");
+        console.log("Cleared companies from localStorage");
+      }
+      setIsSending(false);
+      setIsSent(true);
+      toast.success(`Successfully sent ${sentEmailCount} emails!`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Error sending emails:", message);
+      toast.error("Failed to send emails.");
+      setIsSending(false);
+      setIsSent(true);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!subject.trim() || !body.trim()) {
+      toast.error("Please fill in both subject and body.");
+      return;
+    }
+    console.log('Modal submit - Subject:', subject, 'Body:', body); // Debug log
+    setShowModal(false);
+    setIsSending(true);
+    await sendBatchEmails(subject, body);
+    // Reset fields after sending
+    setSubject("");
+    setBody("");
+  };
+
+  const handleCancel = () => {
+    setShowModal(false);
+    // Optionally clear companies if cancel, or keep for retry
+    setSubject("");
+    setBody("");
+  };
+
+  // Step 5: Authentication email sending (uses default, no subject/body needed for test)
+  // useEffect(() => {
+  //   if (!userEmail || !userName || !resumeFetched.current || emailLimitReached) return;
+
+  //   const checkVerifyEmail = async () => {
+  //     const success = await sendEmail("suman85bera@gmail.com", "", ""); // Empty for test
+  //     if (!success) {
+  //       console.error("Authentication email failed.");
+  //     } else {
+  //       console.log("Authentication email sent successfully (test).");
+  //     }
+  //   };
+
+  //   checkVerifyEmail();
+  // }, [userEmail, userName, resume]);
 
   // Step 6: Fetch Gemini response
   useEffect(() => {
@@ -289,7 +399,7 @@ const Page = () => {
       }
     };
 
-    fetchGeminiResponse();
+    // fetchGeminiResponse();
   }, [urd, gemini_key]);
 
   // Step 7: Process Gemini data
@@ -352,7 +462,6 @@ const Page = () => {
   }, [userEmail]);
 
   // Step 9: Handle email data from extension and localStorage
-
   useEffect(() => {
     if (emailLimitReached) return;
 
@@ -379,7 +488,6 @@ const Page = () => {
       console.log("Received jobs from extension:", jobs);
 
       const filteredJobs = jobs.filter((job: any) => job.email !== "Not found");
-      // localStorage.setItem("companies", JSON.stringify(filteredJobs));
       localStorage.setItem("companies", JSON.stringify(filteredJobs));
       setCompanies(filteredJobs);
 
@@ -399,81 +507,14 @@ const Page = () => {
     };
   }, [emailLimitReached]);
 
-  // Step 10: Send emails to company array and clear localStorage
+  // Open modal when emails are available
   useEffect(() => {
-    if (emailArray.length === 0 || hasRun.current || emailLimitReached || !resumeFetched.current) return;
-
-    hasRun.current = true;
-
-    const sendEmails = async () => {
-      try {
-        let sentEmailCount = 0;
-        const emailCountRef = ref(db, `user/${uid}/Payment/email_count`);
-        const snapshot = await get(emailCountRef);
-        let existingCount = snapshot.exists() ? snapshot.val() : 0;
-        console.log("Existing email count:", existingCount);
-
-        for (const email of emailArray) {
-          if (existingCount + sentEmailCount >= 10000) {
-            setEmailLimitReached(true);
-            toast.warning(
-              <div className="p-4 bg-gradient-to-r from-purple-800 via-pink-600 to-red-500 rounded-xl shadow-lg text-white">
-                <h2 className="text-lg font-bold">💼 Email Limit Reached</h2>
-                <p className="text-sm mt-1">
-                  You've hit the <span className="font-semibold">10000 email</span> limit on your free plan.
-                </p>
-                <p className="text-sm">
-                  Upgrade to <span className="underline font-semibold">Premium</span> to continue sending job applications automatically.
-                </p>
-              </div>,
-              { autoClose: 8000 }
-            );
-            break;
-          }
-
-          const success = await sendEmail(email);
-          if (success) {
-            sentEmailCount += 1;
-            await set(emailCountRef, existingCount + sentEmailCount);
-            console.log(`Updated email count to ${existingCount + sentEmailCount}`);
-
-            // Save company details to Firebase under hr_marketing_data with a unique key
-            const company = companies.find((c) => c.email === email);
-            if (company) {
-              const marketingRef = ref(db, "hr_marketing_data");
-              const newCompanyRef = push(marketingRef);
-              await set(newCompanyRef, {
-                companyName: company.company,
-                email: company.email,
-                isDownloaded: false,
-              });
-            }
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-        }
-
-        // Only clear localStorage after all emails are sent and UI is updated
-        if (sentEmailCount > 0) {
-          setIsSending(false);
-          setIsSent(true);
-          localStorage.removeItem("companies");
-          console.log("Cleared companies from localStorage");
-        } else {
-          setIsSending(false);
-          setIsSent(true);
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("Error sending emails:", message);
-        toast.error("Failed to send emails.");
-        setIsSending(false);
-        setIsSent(true);
-      }
-    };
-
-    sendEmails();
-  }, [emailArray, resume, uid, userEmail, userName]);
+    if (emailArray.length > 0 && !hasRun.current && !emailLimitReached && resumeFetched.current) {
+      console.log("Opening modal for email customization...");
+      setShowModal(true);
+      hasRun.current = true;
+    }
+  }, [emailArray]);
 
   const handleUpdatePlan = () => {
     window.location.href = "/payment";
@@ -504,7 +545,7 @@ const Page = () => {
           <div>
             <h2 className="text-3xl font-bold flex items-center gap-3">
               <FaBriefcase className="text-white" />
-              {isSending ? "Searching Jobs..." : "Applications"}
+              {isSending ? "Sending Emails..." : "Applications"}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {companies.map((company, index) => (
@@ -519,6 +560,50 @@ const Page = () => {
           </div>
         )}
       </div>
+
+      {/* Email Customization Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#11011E] p-6 rounded-lg border border-[#0FAE96] max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-white">Customize Your Job Application Email</h2>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2 text-gray-300">Subject:</label>
+              <input
+                type="text"
+                placeholder="e.g., Application for Python Trainer Position"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="w-full p-3 bg-gray-800 text-white rounded border border-gray-600 focus:outline-none focus:border-[#0FAE96] focus:ring-1 focus:ring-[#0FAE96]"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2 text-gray-300">Body:</label>
+              <textarea
+                placeholder="Write your cover letter here... (Include placeholders like {job_title} if needed)"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                className="w-full p-3 bg-gray-800 text-white rounded border border-gray-600 focus:outline-none focus:border-[#0FAE96] focus:ring-1 focus:ring-[#0FAE96] h-40 resize-none"
+                rows={6}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={handleCancel}
+                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!subject.trim() || !body.trim()}
+                className="px-6 py-2 bg-[#0FAE96] text-white rounded hover:bg-[#0C8C79] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send All ({emailArray.length} Emails)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
