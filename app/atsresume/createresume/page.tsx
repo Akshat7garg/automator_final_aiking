@@ -10,7 +10,7 @@ import LeftSidebar from "@/components/left/LeftSidebar";
 import Resume from "@/components/resume_templates/bonzor";
 import Rightsidebar from "@/components/right/Rightsidebar";
 import { ref, getDatabase, get } from "firebase/database";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import app from "@/firebase/config";
 import fillResumeData from "@/components/oneclick/page";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -53,6 +53,7 @@ const CreateResume: React.FC = () => {
   const [uid, setUid] = useState<string | null>(null);
 
   // ===== data state
+  const [dataReady, setDataReady] = useState(false);
   const [resumeData, setResumeData] = useState<unknown>(null);
   const [apiKey, setApiKey] = useState("");
   const [job_description, setJD] = useState<string | null>(null);
@@ -103,60 +104,63 @@ const CreateResume: React.FC = () => {
 
   // ===== auth/bootstrap
   useEffect(() => {
-    const auth = getAuth();
-    setUid(auth.currentUser ? auth.currentUser.uid : null);
+    const auth = getAuth(app);
+    const unsub = auth.onAuthStateChanged((user) => {
+      setUid(user ? user.uid : null);
+    });
+    return () => unsub();
   }, []);
+
 
   useEffect(() => {
     const init = async () => {
       try {
-        let api_key = localStorage.getItem("api_key");
-        if (uid) {
-          const userData = await fetchUserDetails(uid);
-          if (userData) {
-            const { apiKey: storedKey, rd } = userData;
-
-            if (storedKey === "API_KEY_NOT_FOUND") {
-              toast.error("Please Upload Your Gemini Key!");
-              setTimeout(() => (window.location.href = "/gemini"), 1500);
-              return;
-            }
-            if (rd === "RD_DATA_NOT_FOUND") {
-              toast.error("Please Upload Your Resume!");
-              setTimeout(() => (window.location.href = "/resume2"), 1500);
-              return;
-            }
-
-            api_key = storedKey;
-            setApiKey(api_key);
-            localStorage.setItem("api_key", storedKey);
-          }
-        }
-
+        // 1️⃣ Read localStorage FIRST
         const JD = localStorage.getItem("jobDescription");
         const RD = localStorage.getItem("resumeText");
+        const key =
+          localStorage.getItem("api_key") ||
+          localStorage.getItem("apiKey");
+
         setJD(JD);
         setRD(RD);
+        setApiKey(key || "");
 
-        if (datapath) {
-          try {
-            await get(datapath);
-          } catch {
-            // ignore warmup errors
+        if (!JD || !RD || !key) {
+          toast.error("Required data missing. Please re-upload.");
+          setTimeout(() => {
+            window.location.href = "/resume2";
+          }, 1500);
+          return;
+        }
+
+        // 2️⃣ Fetch user details only AFTER uid exists
+        if (uid) {
+          const userData = await fetchUserDetails(uid);
+          if (userData?.apiKey) {
+            localStorage.setItem("api_key", userData.apiKey);
           }
         }
-      } catch (e) {
-        console.error(e);
+
+        // 3️⃣ Explicitly mark data ready
+        setDataReady(true);
+      } catch (err) {
+        console.error("Init failed:", err);
+        toast.error("Initialization failed");
       }
     };
-    init();
-  }, [uid, datapath]);
+
+    if (uid !== null) {
+      init();
+    }
+  }, [uid]);
 
   // ===== Gemini
-  const geminiClient = useMemo(
-    () => new GoogleGenerativeAI(apiKey),
-    [apiKey]
-  );
+  const geminiClient = useMemo(() => {
+    if (!apiKey) return null;
+    return new GoogleGenerativeAI(apiKey);
+  }, [apiKey]);
+
 
   const analyzeResumeForSkill = useCallback(async () => {
     const prompt = `
@@ -259,6 +263,11 @@ const CreateResume: React.FC = () => {
       `;
 
     try {
+      if (!geminiClient) {
+        console.error("Gemini client not initialized");
+        return;
+      }
+
       const model = geminiClient.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
       });
@@ -267,15 +276,26 @@ const CreateResume: React.FC = () => {
       const textResponse =
         response?.response?.candidates?.[0]?.content?.parts?.[0]?.text || null;
 
-      if (!textResponse) return { message: "Empty response from Gemini API." };
+      if (!textResponse) {
+        throw new Error("Empty Gemini response");
+      }
 
-      const match = textResponse.match(/```json([\s\S]*?)```/);
-      if (!match)
-        return { message: "No valid JSON output found in Gemini API response." };
+      const cleaned = textResponse
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
 
-      const parsedJSON = JSON.parse(match[1]);
+      let parsedJSON;
+      try {
+        parsedJSON = JSON.parse(cleaned);
+      } catch (err) {
+        console.error("Gemini raw response:", textResponse);
+        throw err;
+      }
+
       setResumeData(parsedJSON);
       return parsedJSON;
+
     } catch (error) {
       console.error("Gemini error:", error);
       return { message: "Failed to process Gemini API response." };
@@ -283,9 +303,19 @@ const CreateResume: React.FC = () => {
   }, [geminiClient, job_description, previous_resume_data]);
 
   useEffect(() => {
-    if (!job_description || !previous_resume_data || !apiKey) return;
+    if (!dataReady || !geminiClient) return;
     analyzeResumeForSkill();
-  }, [job_description, previous_resume_data, apiKey, analyzeResumeForSkill]);
+  }, [dataReady, geminiClient, analyzeResumeForSkill]);
+
+  useEffect(() => {
+    if (dataReady && !resumeData) {
+      const timeout = setTimeout(() => {
+        toast.error("Resume generation failed. Please try again.");
+      }, 15000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [dataReady, resumeData]);
 
   useEffect(() => {
     if (resumeData) {
