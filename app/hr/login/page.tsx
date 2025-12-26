@@ -38,7 +38,7 @@ function HRLogin() {
     });
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
@@ -64,7 +64,7 @@ function HRLogin() {
 
         if (referralCode) {
           console.log("Save in database/firebase")
-          console.log("login",user.uid)
+          console.log("login", user.uid)
           const newDocRef = ref(db, `/referrals/${referralCode}/${user.uid}`);
           console.log(newDocRef, typeof (newDocRef), "referrals");
           get(newDocRef).then((snapshot) => {
@@ -79,7 +79,6 @@ function HRLogin() {
             }
           })
         }
-
 
         // Only fetch Gemini API key
         const apiRef1 = ref(db, `hr/${user.uid}/API/apiKey`);
@@ -117,8 +116,8 @@ function HRLogin() {
         });
       }
     } catch (error) {
-      console.error("HR Login Error:", error.message);
-      toast.error(error.message, { position: "bottom-center" });
+      const errorMessage = error instanceof Error ? error.message : "HR Login Error";
+      toast.error(errorMessage, { position: "bottom-center" });
     } finally {
       setLoading(false);
     }

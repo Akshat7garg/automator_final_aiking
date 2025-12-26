@@ -7,14 +7,13 @@ import { getDatabase, get, ref, set } from "firebase/database";
 import SignInwithGoogle from "../loginwithgoogle/page";
 import Link from 'next/link';
 
-
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const db = getDatabase(app);
 
-  async function notifyExtensionOnLogin(uid:unknown) {
+  async function notifyExtensionOnLogin(uid: unknown) {
     try {
       console.log("Notifying extension of login");
       const event = new CustomEvent("userLoggedIn", { detail: { uid } });
@@ -54,8 +53,6 @@ function Login() {
           return;
         }
 
-
-
         if (apiKey !== "null" && apiKey !== null) {
           if (subscriptionType === "FreeTrialStarted" || subscriptionType === "Premium") {
             window.location.href = "/";
@@ -71,7 +68,7 @@ function Login() {
     checkAuthState();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
@@ -88,7 +85,6 @@ function Login() {
         }
 
         notifyExtensionOnLogin(user.uid);
-
 
         const getReferralCodeFromCookie = () => {
           const cookie = document.cookie.split('; ').find(row => row.startsWith('referral='));
@@ -136,7 +132,7 @@ function Login() {
         } else {
           apiKey = apiSnapshot2.val();
         }
-        
+
         localStorage.setItem("api_key", apiKey);
 
         if (apiKey) {
@@ -152,8 +148,9 @@ function Login() {
         toast.error("Email is not verified. Please verify your email and try again!", { position: "bottom-center" });
       }
     } catch (error) {
-      console.error("Login error:", error.message);
-      toast.error(error.message, { position: "bottom-center" });
+
+      const errorMessage = error instanceof Error ? error.message : "Login error";
+      toast.error(errorMessage, { position: "bottom-center" });
     } finally {
       setLoading(false);
     }
@@ -188,10 +185,10 @@ function Login() {
           <button type="submit" disabled={loading} className="w-full bg-[#0FAE96] text-white p-3 rounded-lg hover:opacity-90 transition duration-300 transform hover:scale-105">
             {loading ? "Signing in..." : "Sign in"}
           </button>
-          
+
           {/* Centered Google Sign-In Button */}
           <div className="flex justify-center">
-          {/* <p className="text-sm text-[#B6B6B6]">Or continue with</p><br></br> */}
+            {/* <p className="text-sm text-[#B6B6B6]">Or continue with</p><br></br> */}
             <SignInwithGoogle />
           </div>
         </form>
