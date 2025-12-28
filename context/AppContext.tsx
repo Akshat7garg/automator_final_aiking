@@ -522,7 +522,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addJobDescription = (text: string, title?: string, company?: string) => {
-    const id = `job-${Date.now()}`;
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     dispatch({
       type: 'ADD_JOB_DESCRIPTION',
       payload: { id, text, title, company }
