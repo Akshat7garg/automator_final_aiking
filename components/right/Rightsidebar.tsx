@@ -167,16 +167,6 @@ const RightSidebar: React.FC = () => {
 
   return (
     <div className="p-4 w-full max-w-full sm:max-w-full h-full bg-gradient-to-b from-[#0F011E] via-[rgba(17,1,30,0.95)] to-[#0F011E] text-white border-l border-gray-700 shadow-2xl overflow-y-scroll scrollbar-thin">
-      {/* Job Description */}
-      <div className="mb-6">
-        <h2 className="text-lg sm:text-xl font-extrabold mb-3 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent animate-pulse">
-          Job Description
-        </h2>
-        <textarea
-          placeholder="Enter job description here..."
-          className={`w-full p-3 text-sm sm:text-base border border-gray-600 rounded-xl bg-gradient-to-b from-[#0F011E] via-[rgba(17,1,30,0.95)] to-[#0F011E] backdrop-blur-md text-white h-20 sm:h-24 resize-none focus:outline-none transition-all duration-300 shadow-inner hover:shadow-glow focus:ring-2`}
-        />
-      </div>
 
       {/* Resume Templates */}
       <div className="mb-6">
@@ -203,7 +193,7 @@ const RightSidebar: React.FC = () => {
               }`}
             onClick={() => setActiveTab("premium")}
           >
-            Premium
+            ⭐ Premium
           </button>
         </div>
 
@@ -273,18 +263,19 @@ const RightSidebar: React.FC = () => {
                     <img
                       src={template.image}
                       alt={`${template.name} preview`}
-                      className={`w-full h-full object-cover rounded-lg transition-transform duration-300 ${!canUseTemplate ? "opacity-40" : ""
-                        }`}
+                      className="w-full h-full object-cover rounded-lg transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg">
-                      <p className="text-white text-sm sm:text-lg font-semibold drop-shadow-lg">
-                        {template.name}
-                      </p>
-                    </div>
+                    {canUseTemplate && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg">
+                        <p className="text-white text-sm sm:text-lg font-semibold drop-shadow-lg">
+                          {template.name}
+                        </p>
+                      </div>
+                    )}
 
                     {!canUseTemplate && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg">
-                        <p className="text-yellow-400 font-semibold">
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent rounded-lg">
+                        <p className="text-yellow-300 text-sm sm:text-lg font-semibold drop-shadow-lg">
                           Premium
                         </p>
                       </div>
