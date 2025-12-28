@@ -13,6 +13,13 @@ import { fetchGeminiApiKey, fetchSkillsDataFromFirebase, fetchUserResumeData } f
 import { toast } from 'react-toastify';
 import { onAuthStateChanged } from 'firebase/auth';
 
+type AIJobDescription = {
+  jobTitle: string;
+  responsibilities: string;
+  requiredSkills: string;
+  qualifications: string;
+};
+
 const JobDescriptionUpload = () => {
   const { state, addJobDescription, removeJobDescription, setFormStep, analyzeData, setResume } = useAppContext();
   const [jobText, setJobText] = useState('');
@@ -28,11 +35,16 @@ const JobDescriptionUpload = () => {
   const [aiJobRole, setAiJobRole] = useState('');
   const [aiCompanyName, setAiCompanyName] = useState('');
   const [aiExperienceLevel, setAiExperienceLevel] = useState('Mid-Level');
-  const [aiJobDescription, setAiJobDescription] = useState('');
-  const [aiJobDescriptions, setAiJobDescriptions] = useState<string[]>([]);
   const [isFetchingJD, setIsFetchingJD] = useState(false);
   const [isProcessingJDs, setIsProcessingJDs] = useState(false);
+  const [aiJobType, setAiJobType] = useState('Fresher');
   const auth = getAuth();
+
+  const [allAIJobDescriptions, setAllAIJobDescriptions] = useState<AIJobDescription[]>([]);
+  const [aiJobDescriptions, setAiJobDescriptions] = useState<AIJobDescription[]>([]);
+  const [showAISelectPopup, setShowAISelectPopup] = useState(false);
+  const [expandedAIJDIndex, setExpandedAIJDIndex] = useState<number | null>(null);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -111,7 +123,7 @@ const JobDescriptionUpload = () => {
       } catch (error) {
         console.error('Error fetching Gemini API key:', error);
         setError('Failed to fetch API key. You can still enter it manually.');
-        const localKey = localStorage.getItem("geminiApiKey") || "";
+        const localKey = localStorage.getItem("api_key") || "";
         setApiKey(localKey);
       }
     };
@@ -153,46 +165,55 @@ const JobDescriptionUpload = () => {
     }
 
     if (apiKey.trim()) {
-      localStorage.setItem('geminiApiKey', apiKey.trim());
+      localStorage.setItem('api_key', apiKey.trim());
     }
 
     setIsLoading(true);
     try {
+
       console.log('handleSubmit: Starting analysis with JDs:', state.jobDescriptions.map(jd => ({
         id: jd.id,
         title: jd.title,
         text: jd.text.substring(0, 50) + '...'
       })));
+
       setFormStep(FormStep.ANALYZING);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Analysis timed out after 30 seconds')), 30000)
       );
+
       const result = await Promise.race([analyzeData(), timeoutPromise]);
       console.log('handleSubmit: Analysis completed successfully, result:', result);
       // if (!result?.videos?.length) {
       //   throw new Error('No video data generated from analysis');
       // }
+
       setFormStep(FormStep.RESULTS);
       toast.success('Analysis completed successfully!');
     } catch (error) {
       console.error('handleSubmit: Error during analysis:', error);
+
       const errorObj = error instanceof Error ? error : new Error(String(error));
       let errorMessage = errorObj.message || 'Failed to generate video data';
+
       if (errorObj.message.includes('429')) {
         errorMessage = 'YouTube API quota exceeded. Please try again later or upgrade your plan.';
         toast.error(errorMessage);
+
         setTimeout(() => {
           window.location.href = '/upgrade';
         }, 3000);
       } else if (errorObj.message.includes('403') || errorObj.message.includes('invalid')) {
         errorMessage = 'Invalid YouTube API key. Please check your API key.';
         toast.error(errorMessage);
+
         setTimeout(() => {
           window.location.href = '/youtube-api';
         }, 3000);
       } else {
         toast.error(errorMessage);
       }
+
       setError(errorMessage);
       setFormStep(FormStep.JOB_DESCRIPTIONS);
       setIsProcessingJDs(false);
@@ -202,160 +223,123 @@ const JobDescriptionUpload = () => {
     }
   }, [apiKey, state.jobDescriptions, analyzeData, setFormStep]);
 
-  // Automate adding job descriptions and submitting
-  useEffect(() => {
-    const processJobDescriptions = async () => {
-      if (aiJobDescriptions.length === 0 || isProcessingJDs) {
-        console.log('processJobDescriptions: Skipping due to empty aiJobDescriptions or isProcessingJDs');
-        return;
-      }
-
-      if (aiJobDescriptions.length < 5) {
-        console.warn('processJobDescriptions: Received fewer than 5 job descriptions:', aiJobDescriptions.length, aiJobDescriptions);
-        setError('Received fewer than 5 job descriptions. Please try again.');
-        // toast.error('Received fewer than 5 job descriptions');
-        return;
-      }
-
-      // Validate aiJobDescriptions
-      const validJDs = aiJobDescriptions.filter(jd => typeof jd === 'string' && jd.trim());
-      if (validJDs.length < 5) {
-        console.error('processJobDescriptions: Insufficient valid job descriptions:', validJDs);
-        setError(`Only ${validJDs.length} valid job descriptions found. Please try again.`);
-        // toast.error(`Only ${validJDs.length} valid job descriptions found`);
-        return;
-      }
-
-      setIsProcessingJDs(true);
-      setShowAIPopup(false);
-      console.log('processJobDescriptions: Starting to process', validJDs.length, 'job descriptions:', validJDs);
-
-      try {
-        let addedCount = 0;
-        for (let i = 0; i < Math.min(validJDs.length, 5); i++) {
-          const currentJD = validJDs[i];
-          if (!currentJD?.trim()) {
-            console.warn(`processJobDescriptions: Skipping empty JD at index ${i}:`, currentJD);
-            continue;
-          }
-
-          // Set state and wait for it to update
-          setJobTitle(aiJobRole);
-          setJobCompany(aiCompanyName || '');
-          setJobText(currentJD);
-          console.log(`processJobDescriptions: Set JD ${i + 1}:`, {
-            title: aiJobRole,
-            company: aiCompanyName,
-            text: currentJD.substring(0, 50) + '...',
-          });
-
-          // Wait for state update
-          await new Promise((resolve) => setTimeout(resolve, 100));
-
-          // Verify jobText before adding
-          if (!jobText.trim()) {
-            console.error(`processJobDescriptions: jobText is empty after setting JD ${i + 1}`);
-            continue;
-          }
-
-          const added = handleAddJob();
-          if (!added) {
-            console.error(`processJobDescriptions: Failed to add JD at index ${i}`);
-            continue;
-          }
-
-          addedCount++;
-          console.log(`processJobDescriptions: Added JD ${i + 1}, current jobDescriptions length: ${state.jobDescriptions.length}`);
-        }
-
-        if (addedCount < 5) {
-          throw new Error(`Only ${addedCount} job descriptions were added successfully`);
-        }
-
-        console.log('processJobDescriptions: All JDs added, triggering submit');
-        await handleSubmit();
-      } catch (error) {
-        console.error('processJobDescriptions: Error processing job descriptions:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        setError(`Failed to process job descriptions: ${errorMessage}`);
-        // toast.error(`Processing failed: ${errorMessage}`);
-      } finally {
-        setIsProcessingJDs(false);
-        console.log('processJobDescriptions: Processing finished, isProcessingJDs set to false');
-      }
-    };
-
-    processJobDescriptions();
-  }, [aiJobDescriptions, aiJobRole, aiCompanyName, handleAddJob, handleSubmit, jobText]);
-
   const handleClick = () => {
     window.open("https://youtu.be/FeRTK3aHdIk", "_blank");
   };
 
   const handleFetchAIJD = async () => {
     if (!aiJobRole.trim()) {
-      setError('Please enter a job role and subject');
-      console.error('handleFetchAIJD: Job role is empty');
-      // toast.error('Please enter a job role and subject');
+      setError('Please enter a job role');
       return;
     }
 
     setIsFetchingJD(true);
+    setError('');
+
     try {
-      console.log('handleFetchAIJD: Fetching job descriptions for', {
-        jobRole: aiJobRole,
-        companyName: aiCompanyName,
-        experienceLevel: aiExperienceLevel,
-      });
-      const response = await fetch('https://google-grounding-backend.onrender.com/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ jobRole: aiJobRole, companyName: aiCompanyName, experienceLevel: aiExperienceLevel, apiKey: apiKey }),
+      const storedApiKey = localStorage.getItem("api_key");
+
+      if (!storedApiKey) {
+        setError("Gemini API key not found. Please add it first.");
+        setIsFetchingJD(false);
+        return;
+      }
+
+      const response = await fetch("/api/job-descriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobTitle: aiJobRole,
+          jobType: aiJobType,
+          experienceLevel: aiExperienceLevel,
+          apikey: storedApiKey, // ✅ EXACT match with backend
+        }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch job descriptions: ${errorText}`);
+        throw new Error(await response.text());
       }
 
       const data = await response.json();
-      let updatedData = data.response
-        .replace(/^```json\n?/, '')
-        .replace(/^```\n?/, '')
-        .replace(/\n```$/, '')
+
+      let cleaned = data.response
+        .replace(/^```json/, '')
+        .replace(/^```/, '')
+        .replace(/```$/, '')
         .trim();
 
-      const arrayData: string[] = JSON.parse(updatedData).filter((jd: string) => typeof jd === 'string' && jd.trim());
-      console.log("length", arrayData.length)
-      if (!Array.isArray(arrayData) || arrayData.length < 5) {
-        throw new Error(`Insufficient valid job descriptions received: ${arrayData.length}`);
+      const parsed: AIJobDescription[] = JSON.parse(cleaned);
+
+      const validJDs = parsed.filter(
+        (jd) =>
+          jd &&
+          typeof jd.jobTitle === "string" &&
+          typeof jd.responsibilities === "string" &&
+          typeof jd.requiredSkills === "string" &&
+          typeof jd.qualifications === "string"
+      );
+
+      if (validJDs.length < 5) {
+        throw new Error(`Only ${validJDs.length} valid job descriptions found`);
       }
 
-      console.log('handleFetchAIJD: Received', arrayData.length, 'job descriptions:', arrayData.map(jd => jd.substring(0, 50) + '...'));
-      setAiJobDescriptions(arrayData);
-      setAiJobDescription(arrayData[0] || '');
-      toast.success('Successfully fetched job descriptions!');
-    } catch (error) {
-      console.error('handleFetchAIJD: Error fetching AI job descriptions:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      setError(`Failed to fetch job descriptions: ${errorMessage}`);
-      // toast.error(`Failed to fetch job descriptions: ${errorMessage}`);
+      setAllAIJobDescriptions(validJDs);
+      setAiJobDescriptions(validJDs); // selectable list
+      
+      setShowAISelectPopup(true);
+      setShowAIPopup(false);
+      // ❌ DO NOT auto open popup anymore
+      toast.success("AI job descriptions fetched. Click 'AI JDs' to review.");
+
+
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch job descriptions');
       setAiJobDescriptions([]);
-      setAiJobDescription('');
     } finally {
       setIsFetchingJD(false);
-      console.log('handleFetchAIJD: Fetch completed, isFetchingJD set to false');
     }
   };
 
-  const handleCopyJD = () => {
-    if (aiJobDescription) {
-      navigator.clipboard.writeText(aiJobDescription);
-      toast.success('Job description copied to clipboard!');
-      setJobText(aiJobDescription);
-    }
+  const handleSelectAIJD = (jd: AIJobDescription) => {
+    const fullText = `
+      Job Title:
+      ${jd.jobTitle}
+
+      Responsibilities:
+      ${jd.responsibilities}
+
+      Required Skills:
+      ${jd.requiredSkills}
+
+      Qualifications:
+      ${jd.qualifications}
+      `.trim();
+
+    addJobDescription(fullText, jd.jobTitle, aiCompanyName || "");
+
+    setAiJobDescriptions((prev) =>
+      prev.filter((item) => item !== jd)
+    );
+  };
+
+  const copyAIJDToClipboard = (jd: AIJobDescription) => {
+    const text = `
+      Job Title:
+      ${jd.jobTitle}
+
+      Responsibilities:
+      ${jd.responsibilities}
+
+      Required Skills:
+      ${jd.requiredSkills}
+
+      Qualifications:
+      ${jd.qualifications}
+    `.trim();
+
+    navigator.clipboard.writeText(text);
+    toast.success("Job description copied!");
   };
 
   if (state.formStep === FormStep.ANALYZING || isProcessingJDs) {
@@ -452,18 +436,29 @@ const JobDescriptionUpload = () => {
                   />
                 </div>
 
-                <div className="flex justify-center mt-4 space-x-4">
+                <div className="w-full flex flex-col sm:flex-row justify-center items-center gap-2 mt-4">
                   <Button
                     onClick={() => setShowAIPopup(true)}
-                    className="w-[200px] bg-[#7000FF] text-white font-raleway font-semibold text-base px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7000FF] flex items-center justify-center"
+                    className="w-full sm:w-[200px] bg-[#7000FF] text-white font-raleway font-semibold px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7000FF] flex items-center justify-center"
                     disabled={isProcessingJDs}
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
                     <span>Get Auto-JD</span>
                   </Button>
+
+                  {/* ✅ NEW BUTTON */}
+                  {allAIJobDescriptions.length > 0 && (
+                    <Button
+                      onClick={() => setShowAISelectPopup(true)}
+                      className="w-full sm:w-[200px] bg-[#1A1A2E] border border-[#0FAE96] text-[#0FAE96] font-raleway font-semibold px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0FAE96] flex items-center justify-center"
+                    >
+                      🤖 AI JDs ({aiJobDescriptions.length})
+                    </Button>
+                  )}
+
                   <Button
                     onClick={handleAddJob}
-                    className="w-[200px] bg-[#0FAE96] text-white font-raleway font-semibold text-base px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0FAE96] flex items-center justify-center"
+                    className="w-full sm:w-[200px] bg-[#0FAE96] text-white font-raleway font-semibold px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0FAE96] flex items-center justify-center"
                     disabled={isProcessingJDs}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -536,8 +531,9 @@ const JobDescriptionUpload = () => {
       </div>
 
       {showAIPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#1A1A2E] rounded-xl p-8 w-full max-w-xl relative">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-2 sm:px-4">
+          <div className="bg-[#1A1A2E] rounded-2xl p-8 w-full max-w-xl relative">
+
             <Button
               className="absolute top-4 right-4 text-[#0FAE96] hover:bg-[rgba(255,255,255,0.05)]"
               onClick={() => {
@@ -545,7 +541,7 @@ const JobDescriptionUpload = () => {
                 setAiJobRole('');
                 setAiCompanyName('');
                 setAiExperienceLevel('Mid-Level');
-                setAiJobDescription('');
+                setAiJobType('Fresher');
                 setAiJobDescriptions([]);
                 setError('');
               }}
@@ -555,6 +551,7 @@ const JobDescriptionUpload = () => {
             <h3 className="text-xl font-raleway font-medium text-[#ECF1F0] mb-6">
               Generate Job Description with AI
             </h3>
+
             <div className="space-y-6">
               <div>
                 <label className="text-base font-raleway font-medium text-[#ECF1F0] mb-2 block">
@@ -571,6 +568,7 @@ const JobDescriptionUpload = () => {
                   required
                 />
               </div>
+
               <div>
                 <label className="text-base font-raleway font-medium text-[#ECF1F0] mb-2 block">
                   Company Name (Optional)
@@ -582,6 +580,7 @@ const JobDescriptionUpload = () => {
                   onChange={(e) => setAiCompanyName(e.target.value)}
                 />
               </div>
+
               <div>
                 <label className="text-base font-raleway font-medium text-[#ECF1F0] mb-2 block">
                   Experience Level*
@@ -600,6 +599,24 @@ const JobDescriptionUpload = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <label className="text-base font-raleway font-medium text-[#ECF1F0] mb-2 block">
+                  Job Type*
+                </label>
+                <Select value={aiJobType} onValueChange={setAiJobType}>
+                  <SelectTrigger className="w-full text-base font-inter text-[#ECF1F0] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0FAE96]">
+                    <SelectValue placeholder="Select job type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1A1A2E] text-[#ECF1F0] border-[rgba(255,255,255,0.1)]">
+                    <SelectItem value="Intern" className="text-base py-2">Intern</SelectItem>
+                    <SelectItem value="Fresher" className="text-base py-2">Fresher</SelectItem>
+                    <SelectItem value="Junior" className="text-base py-2">Junior</SelectItem>
+                    <SelectItem value="Senior" className="text-base py-2">Senior</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button
                 onClick={handleFetchAIJD}
                 className="w-full bg-[#0FAE96] text-white font-raleway font-semibold text-base px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0FAE96] flex items-center justify-center"
@@ -617,27 +634,127 @@ const JobDescriptionUpload = () => {
                   </>
                 )}
               </Button>
-              {aiJobDescription && (
-                <div className="mt-4">
-                  <Textarea
-                    className={`w-full text-base font-inter text-[#B6B6B6] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg px-4 py-2.5 transition-all duration-200 ${aiJobDescription ? 'min-h-[300px]' : 'min-h-[200px]'}`}
-                    value={aiJobDescription}
-                    readOnly
-                  />
-                  <Button
-                    onClick={handleCopyJD}
-                    className="mt-2 w-full bg-[#7000FF] text-white font-raleway font-semibold text-base px-6 py-3 rounded-md transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7000FF] flex items-center justify-center"
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    <span>Copy Job Description</span>
-                  </Button>
-                </div>
-              )}
               {error && <p className="text-[#FF6B6B] text-sm font-inter mt-2">{error}</p>}
             </div>
           </div>
         </div>
       )}
+
+      {showAISelectPopup && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-2 sm:px-4">
+          <div
+            className="bg-[#1A1A2E] rounded-2xl w-full max-w-3xl h-[85vh] sm:h-[80vh] flex flex-col shadow-xl"
+          >
+            {/* 🔒 FIXED HEADER */}
+            <div
+              className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/10 shrink-0"
+            >
+              <h3 className="text-lg sm:text-xl font-raleway font-medium text-[#ECF1F0]">
+                Select Job Descriptions
+              </h3>
+              <Button
+                className="text-[#0FAE96] hover:bg-white/5"
+                onClick={() => setShowAISelectPopup(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* 🔄 SCROLLABLE JD LIST */}
+            <div
+              className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4 scroll-bar"
+            >
+              {aiJobDescriptions.map((jd, index) => {
+                const isExpanded = expandedAIJDIndex === index;
+
+                return (
+                  <div
+                    key={`ai-jd-${index}`}
+                    className="border border-white/10 rounded-xl bg-white/[0.02] overflow-hidden"
+                  >
+                    {/* HEADER ROW */}
+                    <div
+                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 pt-4 py-4 cursor-pointer border-b 
+                        ${isExpanded ? "border-white/10" : "border-transparent"}`}
+                      onClick={() =>
+                        setExpandedAIJDIndex(isExpanded ? null : index)
+                      }
+                    >
+                      <span className="text-[#ECF1F0] font-medium text-sm sm:text-base">
+                        {jd.jobTitle}
+                      </span>
+
+                      {/* ADD BUTTON */}
+                      <Button
+                        className="bg-[#0FAE96] text-white h-8 px-4 text-sm rounded-lg self-start sm:self-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectAIJD(jd);
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+
+                    {/* EXPANDABLE CONTENT */}
+                    <div
+                      className={`overflow-hidden transition-[max-height,opacity] duration-500 ease-out
+                  ${isExpanded ? "max-h-[1200px] opacity-100 pt-4" : "max-h-0 opacity-0 pt-0"}
+                `}
+                    >
+                      <div className="px-4 pb-6 space-y-6 text-sm text-[#B6B6B6]">
+                        <div>
+                          <h4 className="text-[#ECF1F0] text-xs uppercase tracking-wide mb-2">
+                            Responsibilities
+                          </h4>
+                          <pre className="whitespace-pre-wrap leading-relaxed">
+                            {jd.responsibilities}
+                          </pre>
+                        </div>
+
+                        <div>
+                          <h4 className="text-[#ECF1F0] text-xs uppercase tracking-wide mb-2">
+                            Required Skills
+                          </h4>
+                          <pre className="whitespace-pre-wrap leading-relaxed">
+                            {jd.requiredSkills}
+                          </pre>
+                        </div>
+
+                        <div>
+                          <h4 className="text-[#ECF1F0] text-xs uppercase tracking-wide mb-2">
+                            Qualifications
+                          </h4>
+                          <pre className="whitespace-pre-wrap leading-relaxed">
+                            {jd.qualifications}
+                          </pre>
+                        </div>
+
+                        {/* COPY BUTTON */}
+                        <Button
+                          className="bg-[#7000FF] text-white h-9 px-5 rounded-lg text-sm flex justify-center items-center gap-1"
+                          onClick={() => copyAIJDToClipboard(jd)}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Job Description
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {aiJobDescriptions.length === 0 && (
+                <p className="text-[#B6B6B6] text-center mt-8">
+                  All job descriptions have been added.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 };
