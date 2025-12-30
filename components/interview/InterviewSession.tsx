@@ -7,15 +7,15 @@ import {
   SpeechRecognitionUtil,
 } from "@/lib/webrtc-utils";
 import { useToast } from "@/components/ui/use-toast";
-import { generateInterviewQuestion } from "@/lib/gemini-utils";
-// import type { SessionType } from "@/pages/Interview";
+import { generateInterviewQuestion, generateInterviewFeedback } from "@/lib/gemini-utils";
+import type { SessionType } from "@/pages/Interview";
 import { saveSessionWithRecording, saveSession } from "@/lib/db-service";
 import { onAuthStateChanged } from "firebase/auth";
 import app, { auth } from "@/firebase/config";
 import { getDatabase, ref, set, get, update } from "firebase/database";
 import { usePathname, useRouter } from "next/navigation";
 
-interface SessionType {
+export interface SessionTypes {
   jobDescription?: string;
   role?: string;
   skillLevel?: string;
@@ -38,6 +38,30 @@ interface InterviewSessionProps {
   setIsRecording: React.Dispatch<React.SetStateAction<boolean>>;
   onComplete: (feedback: SessionType["feedback"]) => void;
 }
+
+// ========== MOCK MODE FOR TESTING ==========
+// Set this to true to bypass API calls and use hardcoded questions
+// Set to false when API quota is available
+const MOCK_MODE = false;
+
+const MOCK_QUESTIONS = [
+  "Hello! Welcome to your interview. I'm excited to get to know you better. Let's start with a classic - could you tell me a bit about yourself and what brings you here today?",
+  "That's great to hear! Now, could you walk me through a challenging project you've worked on recently? What was your role and what made it challenging?",
+  "Interesting! How do you typically approach problem-solving when you encounter something you've never seen before?",
+  "I appreciate your thoughtfulness. Can you tell me about a time when you had to work under pressure or meet a tight deadline? How did you handle it?",
+  "That's a valuable skill. What would you say are your greatest strengths, and how have they helped you in your career?",
+  "Perfect. Now, where do you see yourself in the next few years? What are your career goals?",
+  "Great perspective! Is there anything you'd like to ask me or anything else you'd like to share about your experience?",
+];
+
+let mockQuestionIndex = 0;
+
+const getMockQuestion = (): string => {
+  const question = MOCK_QUESTIONS[mockQuestionIndex % MOCK_QUESTIONS.length];
+  mockQuestionIndex++;
+  return question;
+};
+// ========== END MOCK MODE ==========
 
 const InterviewSession: React.FC<InterviewSessionProps> = ({
   session,
@@ -81,6 +105,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
   const continueListeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSpeechRef = useRef<string>("");
   const hasStartedInterview = useRef<boolean>(false);
+  const mediaStreamRef = useRef<MediaStream | null>(null); // Ref to avoid stale closure
   const [isFinishing, setIsFinishing] = useState<boolean>(false);
   const [interviewCount, setInterviewCount] = useState<number>(0);
   const [isInterviewStarted, setIsInterviewStarted] = useState<boolean>(false);
@@ -99,6 +124,11 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
   useEffect(() => {
     voiceTypeRef.current = voiceType;
   }, [voiceType]);
+
+  // Sync mediaStream ref with state to avoid stale closures in audio callbacks
+  useEffect(() => {
+    mediaStreamRef.current = mediaStream;
+  }, [mediaStream]);
 
   const pathname = usePathname();
 
@@ -320,15 +350,17 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
                   aiResponseText =
                     "Coding, or programming, is the process of creating instructions for computers using programming languages. It's like writing a detailed recipe that tells the computer what to do. Programmers use languages like Python, JavaScript, or C++ to create websites, apps, games, and more. Have you tried coding before?";
                 } else {
-                  aiResponseText = await generateInterviewQuestion(
-                    session?.jobDescription || "",
-                    conversation.map((m) => m.content).slice(-4),
-                    [finalResponse],
-                    {
-                      role: session?.role || "General",
-                      skillLevel: session?.skillLevel || "Intermediate",
-                    }
-                  );
+                  aiResponseText = MOCK_MODE
+                    ? getMockQuestion()
+                    : await generateInterviewQuestion(
+                      session?.jobDescription || "",
+                      conversation.map((m) => m.content).slice(-4),
+                      [finalResponse],
+                      {
+                        role: session?.role || "General",
+                        skillLevel: session?.skillLevel || "Intermediate",
+                      }
+                    );
                 }
 
                 // Add AI message
@@ -469,8 +501,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
       if (continueListeningTimeoutRef.current) {
         clearTimeout(continueListeningTimeoutRef.current);
       }
-      if (session?.recording) {
-        session.recording.forEach((url) => URL.revokeObjectURL(url));
+      if (session?.recordings) {
+        session.recordings.forEach((url) => URL.revokeObjectURL(url));
       }
     };
   }, []);
@@ -674,6 +706,29 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
         });
       }
 
+      // Set up the onended handler BEFORE calling play() to avoid race conditions
+      const handleAudioEnded = () => {
+        console.log("[Audio] AI finished speaking, triggering auto-listen...");
+        setIsProcessing(false);
+        setWaitingForResponse(true);
+        // AUTO-LISTEN: Start listening automatically after AI finishes speaking
+        setTimeout(() => {
+          console.log("[Auto-Listen] Attempting to start speech recognition...");
+          // Use ref instead of state to avoid stale closure
+          if (mediaStreamRef.current) {
+            console.log("[Auto-Listen] Starting speech recognition after AI finished speaking");
+            setIsListening(true);
+            speechRecognitionRef.current.start();
+          } else {
+            console.warn("[Auto-Listen] Cannot start: mediaStream not available");
+          }
+          startResponseTimeout();
+        }, 800);
+      };
+
+      // Use addEventListener for more reliable event binding
+      audioElementRef.current.addEventListener('ended', handleAudioEnded, { once: true });
+
       audioElementRef.current.play().catch((error) => {
         console.error("Error playing audio:", error);
         toast({
@@ -682,14 +737,9 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             "Failed to play AI voice. Please check your browser's audio settings.",
           variant: "destructive",
         });
+        // If play fails, still trigger auto-listen
+        handleAudioEnded();
       });
-      audioElementRef.current.onended = () => {
-        setIsProcessing(false);
-        setWaitingForResponse(true);
-        // Do NOT start listening automatically.
-        // User must click Speak manually.
-        startResponseTimeout();
-      };
 
       startResponseTimeout();
     } catch (error) {
@@ -702,7 +752,16 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
       });
       setIsProcessing(false);
       setWaitingForResponse(true);
-      startResponseTimeout();
+      // AUTO-LISTEN: Start listening automatically even on TTS error
+      setTimeout(() => {
+        // Use ref instead of state to avoid stale closure
+        if (mediaStreamRef.current) {
+          console.log("[Auto-Listen] Starting speech recognition (TTS error fallback)");
+          setIsListening(true);
+          speechRecognitionRef.current.start();
+        }
+        startResponseTimeout();
+      }, 800);
     }
   };
 
@@ -716,15 +775,17 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
 
   const startInterview = async () => {
     try {
-      const initialQuestion = await generateInterviewQuestion(
-        session?.jobDescription || "",
-        [],
-        [],
-        {
-          role: session?.role || "General",
-          skillLevel: session?.skillLevel || "Intermediate",
-        }
-      );
+      const initialQuestion = MOCK_MODE
+        ? getMockQuestion()
+        : await generateInterviewQuestion(
+          session?.jobDescription || "",
+          [],
+          [],
+          {
+            role: session?.role || "General",
+            skillLevel: session?.skillLevel || "Intermediate",
+          }
+        );
       console.log("Initial question received:", initialQuestion);
       if (
         conversation.length === 0 ||
@@ -744,8 +805,10 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
         // Speak immediately without delay
         speakText(initialQuestion);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error starting interview:", error);
+      // gemini-utils.ts already shows react-toastify notification for API errors
+
       const fallbackQuestion = `Let's get started with your interview. Could you tell me about your background and experience?`;
       console.log("Fallback question:", fallbackQuestion);
       if (
@@ -946,18 +1009,20 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             "Coding is the process of writing instructions for computers using programming languages like Python, JavaScript, or C++. " +
             acknowledgment;
         } else {
-          // Generate next question normally (Gemini pipeline untouched)
-          const generated = await generateInterviewQuestion(
-            session?.jobDescription || "",
-            conversation.map((msg) => msg.content).slice(-4),
-            [finalResponse],
-            {
-              role: session?.role || "General",
-              skillLevel: session?.skillLevel || "Intermediate",
-              memory: memoryRef.current.slice(-8).join(". "),
-              hrTone: "friendly-conversational",
-            }
-          );
+          // Generate next question (uses mock in MOCK_MODE)
+          const generated = MOCK_MODE
+            ? getMockQuestion()
+            : await generateInterviewQuestion(
+              session?.jobDescription || "",
+              conversation.map((msg) => msg.content).slice(-4),
+              [finalResponse],
+              {
+                role: session?.role || "General",
+                skillLevel: session?.skillLevel || "Intermediate",
+                memory: memoryRef.current.slice(-8).join(". "),
+                hrTone: "friendly-conversational",
+              }
+            );
 
           aiResponseText =
             acknowledgment +
@@ -986,8 +1051,9 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
 
         // Speak it
         setTimeout(() => speakText(aiResponseText), 100);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error generating AI response:", error);
+        // gemini-utils.ts already shows react-toastify notification for API errors
 
         const fallbackResponse =
           "Got it. Let's keep moving forward. Could you walk me through a challenge you recently solved in any project?";
@@ -1041,12 +1107,14 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
     try {
       const role = session?.role || "General";
       const skillLevel = session?.skillLevel || "Intermediate";
-      const aiResponseText = await generateInterviewQuestion(
-        session?.jobDescription || "",
-        conversation.map((msg) => msg.content).slice(-4),
-        [],
-        { role, skillLevel }
-      );
+      const aiResponseText = MOCK_MODE
+        ? getMockQuestion()
+        : await generateInterviewQuestion(
+          session?.jobDescription || "",
+          conversation.map((msg) => msg.content).slice(-4),
+          [],
+          { role, skillLevel }
+        );
       setAiResponse(aiResponseText);
       setConversation((prev) => {
         const updatedConversation = [
@@ -1112,7 +1180,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             updatedTranscript[updatedTranscript.length - 1].answer =
               "No response";
           }
-          updatedTranscript.push({ question: fallbackResponse, answer: "" });
+          updatedTranscript.push({ question: fallbackResponse, image: "" });
           console.log(
             "Updated transcript after no response (fallback):",
             updatedTranscript
@@ -1206,13 +1274,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
   };
 
   const startListening = () => {
+    // Skip if AI is still processing or not waiting for user response
     if (isProcessing || !waitingForResponse) {
-      toast({
-        title: "Please Wait",
-        description:
-          "The AI is still processing or waiting for the right moment to listen.",
-        variant: "default",
-      });
       return;
     }
 
@@ -1312,41 +1375,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
     speechRecognitionRef.current.start();
   };
 
-  const calculateScore = (responses: string[]): number => {
-    let totalScore = 0;
-    const maxScorePerResponse = 3;
-    const minLength = 20;
-    const keywords = [
-      "react",
-      "component",
-      "state",
-      "experience",
-      "project",
-      "skills",
-      "team",
-      "solution",
-      "javascript",
-      "development",
-    ];
-
-    responses.forEach((response) => {
-      let responseScore = 0;
-      if (response.length > minLength) {
-        responseScore += 1;
-      }
-      const keywordMatches = keywords.filter((keyword) =>
-        response.toLowerCase().includes(keyword)
-      ).length;
-      responseScore += keywordMatches * 0.2;
-      totalScore += Math.min(responseScore, maxScorePerResponse);
-    });
-
-    const normalizedScore =
-      (totalScore / (responses.length * maxScorePerResponse)) * 10;
-    return Math.round(normalizedScore * 10) / 10;
-  };
-
-  const generateFeedback = (
+  // Renamed old function to serve as fallback
+  const generateStaticFeedback = (
     transcript: Array<{ question: string; answer: string }>
   ) => {
     const strengths: string[] = [];
@@ -1410,7 +1440,45 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
       improvements.push("Continue practicing to enhance response confidence");
     }
 
-    return { strengths, improvements };
+    // specific static score logic
+    const calculateScore = (responses: string[]): number => {
+      let totalScore = 0;
+      const maxScorePerResponse = 3;
+      const minLength = 20;
+      const keywords = [
+        "react",
+        "component",
+        "state",
+        "experience",
+        "project",
+        "skills",
+        "team",
+        "solution",
+        "javascript",
+        "development",
+      ];
+
+      responses.forEach((response) => {
+        let responseScore = 0;
+        if (response.length > minLength) {
+          responseScore += 1;
+        }
+        const keywordMatches = keywords.filter((keyword) =>
+          response.toLowerCase().includes(keyword)
+        ).length;
+        responseScore += keywordMatches * 0.2;
+        totalScore += Math.min(responseScore, maxScorePerResponse);
+      });
+
+      const normalizedScore =
+        (totalScore / (responses.length * maxScorePerResponse)) * 10;
+      return Math.round(normalizedScore * 10) / 10;
+    };
+
+    // Calculate score inside fallback
+    const overallScore = calculateScore(responses);
+
+    return { strengths, improvements, overallScore };
   };
 
   const handleFinishInterview = async () => {
@@ -1493,12 +1561,33 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
         console.log("Final transcript updated:", finalTranscript);
       }
 
-      const userResponses = conversation
-        .filter((msg) => msg.role === "user")
-        .map((msg) => msg.content);
-      const overallScore =
-        userResponses.length > 0 ? calculateScore(userResponses) : 0;
-      const { strengths, improvements } = generateFeedback(finalTranscript);
+      // Generate Feedback (Dynamic -> Fallback)
+      let strengths: string[] = [];
+      let improvements: string[] = [];
+      let overallScore = 0;
+
+      try {
+        console.log("Generating dynamic AI feedback...");
+        const aiFeedback = await generateInterviewFeedback(
+          finalTranscript,
+          session?.jobDescription || "Software Engineer"
+        );
+        strengths = aiFeedback.strengths;
+        improvements = aiFeedback.improvements;
+        overallScore = aiFeedback.overallScore;
+        console.log("AI Feedback generated:", aiFeedback);
+      } catch (error) {
+        console.error("AI Feedback generation failed, falling back to static logic:", error);
+        toast({
+          title: "AI Feedback Unavailable",
+          description: "Could not generate AI feedback. Using basic analysis instead.",
+          variant: "default", // not destructive, just info
+        });
+        const staticFb = generateStaticFeedback(finalTranscript);
+        strengths = staticFb.strengths;
+        improvements = staticFb.improvements;
+        overallScore = staticFb.overallScore;
+      }
 
       const updatedSession = {
         ...session!,
@@ -1707,7 +1796,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
       <div className="min-h-screen bg-[#0a0a0a] text-[#ECF1F0] font-sans flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-[#11011E] border border-[rgba(255,255,255,0.05)] rounded-xl p-8 shadow-2xl">
           <h2 className="text-2xl font-bold mb-6 text-center text-[#0FAE96] font-raleway">
-            Choose Interview Voice
+            Choose Interviewer Voice
           </h2>
 
           <div className="space-y-4 mb-8">
@@ -1762,7 +1851,25 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#ECF1F0] font-sans grid grid-cols-1 md:grid-cols-4 overflow-hidden">
+    <div className="min-h-screen bg-[#0a0a0a] text-[#ECF1F0] font-sans grid grid-cols-1 md:grid-cols-4 overflow-hidden relative">
+      {/* Loading Overlay - Shows while generating feedback */}
+      {isFinishing && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-[#11011E] border border-[rgba(255,255,255,0.1)] rounded-2xl p-8 max-w-sm w-full mx-4 text-center">
+            {/* Simple Spinner */}
+            <div className="w-12 h-12 border-4 border-[#0FAE96]/30 border-t-[#0FAE96] rounded-full animate-spin mx-auto mb-6"></div>
+
+            {/* Text */}
+            <h3 className="text-xl font-raleway font-semibold text-[#0FAE96] mb-2">
+              Generating Feedback
+            </h3>
+            <p className="text-[#ECF1F0]/60 font-inter text-sm">
+              Please wait...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Left: Video & Controls */}
       <div className="md:col-span-3 relative bg-[#11011E] flex flex-col justify-between p-4 min-h-[450px] overflow-hidden">
         {/* Background Blurs */}
@@ -1792,7 +1899,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             {/* Mic */}
             <Button
               variant="outline"
-              size="default"
+              size="icon"
               onClick={toggleMic}
               className={`rounded-full h-10 w-10 border-2 ${micEnabled
                 ? "bg-[#0FAE96] border-[#0FAE96] text-white hover:bg-[#0FAE96]/80"
@@ -1809,7 +1916,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             {/* Video */}
             <Button
               variant="outline"
-              size="default"
+              size="icon"
               onClick={toggleVideo}
               className={`rounded-full h-10 w-10 border-2 ${videoEnabled
                 ? "bg-[#0FAE96] border-[#0FAE96] text-white hover:bg-[#0FAE96]/80"
@@ -1826,7 +1933,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             {/* Voice */}
             <Button
               variant="outline"
-              size="default"
+              size="icon"
               onClick={toggleVoice}
               className={`rounded-full h-10 w-10 border-2 ${voiceEnabled
                 ? "bg-[#0FAE96] border-[#0FAE96] text-white hover:bg-[#0FAE96]/80"
@@ -1904,13 +2011,38 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
           {/* Voice Selection */}
 
 
-          <Button
-            className="w-full bg-[#0FAE96] text-white font-raleway font-semibold text-base px-6 py-3 rounded-md hover:scale-105 transition duration-200 disabled:opacity-50"
-            onClick={startListening}
-            disabled={isListening || isProcessing || !waitingForResponse}
-          >
-            {isListening ? "Listening..." : "Speak"}
-          </Button>
+          {/* Status Indicator - Shows user when they can speak */}
+          <div className={`w-full px-6 py-4 rounded-lg border-2 transition-all duration-300 flex items-center justify-center gap-3 ${isProcessing
+            ? "bg-[rgba(255,0,199,0.1)] border-[rgba(255,0,199,0.3)] text-[#FF00C7]"
+            : isListening
+              ? "bg-[rgba(15,174,150,0.15)] border-[rgba(15,174,150,0.4)] text-[#0FAE96]"
+              : waitingForResponse
+                ? "bg-[rgba(15,174,150,0.1)] border-[rgba(15,174,150,0.3)] text-[#B6F2E5]"
+                : "bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.1)] text-[#ECF1F0]/60"
+            }`}>
+            {isProcessing ? (
+              <>
+                <div className="w-3 h-3 bg-[#FF00C7] rounded-full animate-pulse" />
+                <span className="font-raleway font-medium">AI is responding...</span>
+              </>
+            ) : isListening ? (
+              <>
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-4 bg-[#0FAE96] rounded-full animate-[bounce_0.6s_ease-in-out_infinite]" />
+                  <div className="w-1.5 h-4 bg-[#0FAE96] rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0.1s]" />
+                  <div className="w-1.5 h-4 bg-[#0FAE96] rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0.2s]" />
+                </div>
+                <span className="font-raleway font-semibold">Listening... Speak now!</span>
+              </>
+            ) : waitingForResponse ? (
+              <>
+                <Mic className="w-5 h-5" />
+                <span className="font-raleway font-medium">You can speak now...</span>
+              </>
+            ) : (
+              <span className="font-raleway">Interview starting...</span>
+            )}
+          </div>
           <Button
             className="w-full bg-[#FF00C7]/80 text-white font-raleway font-semibold text-base px-6 py-3 rounded-md hover:scale-105 transition duration-200 disabled:opacity-50"
             onClick={handleFinishInterview}
