@@ -294,6 +294,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
             onInterim: (text) => {
               accumulatedSpeechRef.current = text.trim();
               setUserResponse(accumulatedSpeechRef.current);
+              // Enable auto-restart once user starts speaking to capture full response
+              speechRecognitionRef.current.enableAutoRestart();
             },
 
             // This is the ONLY place that finalizes a user turn and triggers AI
@@ -718,7 +720,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
           if (mediaStreamRef.current) {
             console.log("[Auto-Listen] Starting speech recognition after AI finished speaking");
             setIsListening(true);
-            speechRecognitionRef.current.start();
+            // Use startOnce() to prevent infinite restart loops when there's no speech
+            speechRecognitionRef.current.startOnce();
           } else {
             console.warn("[Auto-Listen] Cannot start: mediaStream not available");
           }
@@ -758,7 +761,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
         if (mediaStreamRef.current) {
           console.log("[Auto-Listen] Starting speech recognition (TTS error fallback)");
           setIsListening(true);
-          speechRecognitionRef.current.start();
+          // Use startOnce() to prevent infinite restart loops when there's no speech
+          speechRecognitionRef.current.startOnce();
         }
         startResponseTimeout();
       }, 800);
@@ -2032,7 +2036,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({
                   <div className="w-1.5 h-4 bg-[#0FAE96] rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0.1s]" />
                   <div className="w-1.5 h-4 bg-[#0FAE96] rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0.2s]" />
                 </div>
-                <span className="font-raleway font-semibold">Listening... Speak now!</span>
+                <span className="font-raleway font-semibold">Listening...</span>
               </>
             ) : waitingForResponse ? (
               <>
