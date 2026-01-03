@@ -8,6 +8,9 @@ import app, { auth } from "@/firebase/config";
 import { getDatabase, ref, set, get, push } from "firebase/database";
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+// Toggle this to enable/disable mock data test button (for testing the custom email functionality)
+const ENABLE_MOCK_DATA = false;
+
 const Page = () => {
   const [isSending, setIsSending] = useState(true);
   const [isSent, setIsSent] = useState(false);
@@ -27,10 +30,56 @@ const Page = () => {
   const [showModal, setShowModal] = useState(false);
   const [subject, setSubject] = useState(""); // Default empty
   const [body, setBody] = useState(""); // Default empty
+  const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor'); // Mobile tab state
   const resumeFetched = useRef(false);
   const hasRun = useRef(false);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
 
   const db = getDatabase(app);
+
+  // Available placeholders for email customization
+  const availablePlaceholders = [
+    { key: "{company_name}", label: "Company Name", description: "Replaced with company name" },
+    { key: "{job_title}", label: "Job Title", description: "Replaced with job position" },
+    { key: "{location}", label: "Location", description: "Replaced with job location" },
+    { key: "{your_name}", label: "Your Name", description: "Replaced with your name" },
+  ];
+
+  // Function to replace placeholders with actual company data
+  const replacePlaceholders = (text: string, company: any) => {
+    return text
+      .replace(/{company_name}/gi, company?.company || '')
+      .replace(/{job_title}/gi, company?.title || '')
+      .replace(/{location}/gi, company?.location || '')
+      .replace(/{your_name}/gi, userName || '');
+  };
+
+  // Function to insert placeholder at cursor position in body textarea
+  const insertPlaceholder = (placeholder: string, target: 'subject' | 'body') => {
+    if (target === 'body' && bodyTextareaRef.current) {
+      const textarea = bodyTextareaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newBody = body.substring(0, start) + placeholder + body.substring(end);
+      setBody(newBody);
+      // Set cursor position after inserted placeholder
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + placeholder.length, start + placeholder.length);
+      }, 0);
+    } else if (target === 'subject' && subjectInputRef.current) {
+      const input = subjectInputRef.current;
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
+      const newSubject = subject.substring(0, start) + placeholder + subject.substring(end);
+      setSubject(newSubject);
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(start + placeholder.length, start + placeholder.length);
+      }, 0);
+    }
+  };
 
   // Step 1: Fetch user data and resume
   useEffect(() => {
@@ -278,14 +327,22 @@ const Page = () => {
           break;
         }
 
-        const success = await sendEmail(email, sub, bod);
+        // Find company data for this email
+        const company = companies.find((c) => c.email === email);
+
+        // Replace placeholders with actual company data
+        const personalizedSubject = replacePlaceholders(sub, company);
+        const personalizedBody = replacePlaceholders(bod, company);
+
+        console.log(`Sending personalized email to ${company?.company || email}:`);
+        console.log('Subject:', personalizedSubject);
+        console.log('Body preview:', personalizedBody.substring(0, 100) + '...');
+
+        const success = await sendEmail(email, personalizedSubject, personalizedBody);
         if (success) {
           sentEmailCount += 1;
           await set(emailCountRef, existingCount + sentEmailCount);
           console.log(`Updated email count to ${existingCount + sentEmailCount}`);
-
-          // Save company details to Firebase under hr_marketing_data with a unique key
-          const company = companies.find((c) => c.email === email);
           if (company) {
             const marketingRef = ref(db, "hr_marketing_data");
             const newCompanyRef = push(marketingRef);
@@ -559,47 +616,205 @@ const Page = () => {
             </div>
           </div>
         )}
+
+        {/* Empty State - No companies yet */}
+        {!emailLimitReached && companies.length === 0 && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+            <FaBriefcase className="text-6xl text-[#0FAE96] mb-4" />
+            <h2 className="text-2xl font-bold mb-2">No Companies Yet</h2>
+            <p className="text-gray-400 mb-6 max-w-md">
+              Use the browser extension to scrape company data from job boards{ENABLE_MOCK_DATA ? ', or test the modal with sample data.' : '.'}
+            </p>
+            {ENABLE_MOCK_DATA && (
+              <button
+                onClick={() => {
+                  // Load mock data for testing
+                  const mockCompanies = [
+                    { company: "TechCorp Inc", email: "hr@techcorp.com", location: "Remote", title: "Software Engineer" },
+                    { company: "DataSoft LLC", email: "jobs@datasoft.com", location: "New York", title: "Data Analyst" },
+                    { company: "WebDev Studios", email: "careers@webdev.io", location: "San Francisco", title: "Frontend Developer" },
+                  ];
+                  setCompanies(mockCompanies);
+                  setEmailArray(mockCompanies.map(c => c.email));
+                  setShowModal(true);
+                  hasRun.current = true;
+                }}
+                className="px-6 py-3 bg-[#0FAE96] text-white rounded-lg hover:bg-[#0C8C79] transition-colors font-medium"
+              >
+                🧪 Test Modal with Sample Data
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Email Customization Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#11011E] p-6 rounded-lg border border-[#0FAE96] max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 text-white">Customize Your Job Application Email</h2>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 text-gray-300">Subject:</label>
-              <input
-                type="text"
-                placeholder="e.g., Application for Python Trainer Position"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="w-full p-3 bg-gray-800 text-white rounded border border-gray-600 focus:outline-none focus:border-[#0FAE96] focus:ring-1 focus:ring-[#0FAE96]"
-              />
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#11011E] rounded-xl border border-[#0FAE96] max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-[0_0_40px_rgba(15,174,150,0.3)]">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-white">✉️ Customize Your Job Application Email</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                💡 <strong>Tip:</strong> Use placeholders like <code className="bg-gray-800 px-1.5 py-0.5 rounded text-[#0FAE96]">{'{company_name}'}</code> and they will be replaced with actual data for each company!
+              </p>
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 text-gray-300">Body:</label>
-              <textarea
-                placeholder="Write your cover letter here... (Include placeholders like {job_title} if needed)"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="w-full p-3 bg-gray-800 text-white rounded border border-gray-600 focus:outline-none focus:border-[#0FAE96] focus:ring-1 focus:ring-[#0FAE96] h-40 resize-none"
-                rows={6}
-              />
+
+            {/* Main Content - Two Columns on Desktop, Tabs on Mobile */}
+            <div className="flex flex-col lg:flex-row max-h-[calc(95vh-180px)] overflow-hidden">
+
+              {/* Mobile Tab Switcher */}
+              <div className="lg:hidden flex border-b border-gray-700">
+                <button
+                  onClick={() => setMobileTab('editor')}
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${mobileTab === 'editor' ? 'text-[#0FAE96] border-b-2 border-[#0FAE96] bg-[#0FAE96]/10' : 'text-gray-400'}`}
+                >
+                  📝 Write Email
+                </button>
+                <button
+                  onClick={() => setMobileTab('preview')}
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${mobileTab === 'preview' ? 'text-[#0FAE96] border-b-2 border-[#0FAE96] bg-[#0FAE96]/10' : 'text-gray-400'}`}
+                >
+                  👁️ Preview ({companies.length})
+                </button>
+              </div>
+              {/* LEFT SIDE - Editor (Always visible on desktop, tab on mobile) */}
+              <div className={`flex-1 p-5 overflow-y-auto custom-scrollbar lg:border-r border-gray-700 ${mobileTab !== 'editor' ? 'hidden lg:block' : ''}`}>
+                <h3 className="text-lg font-semibold text-white mb-4">📝 Write Your Email</h3>
+
+                {/* Subject Input with inline placeholders */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-300">Subject Line</label>
+                    <div className="flex gap-1">
+                      {availablePlaceholders.slice(0, 2).reverse().map((p) => (
+                        <button
+                          key={p.key + '-subject'}
+                          onClick={() => insertPlaceholder(p.key, 'subject')}
+                          className="px-2 py-0.5 bg-[#0FAE96]/20 text-[#0FAE96] rounded text-xs font-mono hover:bg-[#0FAE96]/40 transition-all"
+                          title={`Insert ${p.label} into subject`}
+                        >
+                          + {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <input
+                    ref={subjectInputRef}
+                    type="text"
+                    placeholder="e.g., Application for {job_title} at {company_name}"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="w-full p-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-[#0FAE96] focus:ring-2 focus:ring-[#0FAE96]/50 font-mono text-sm"
+                  />
+                </div>
+
+                {/* Body Textarea with inline placeholders */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-300">Email Body</label>
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {availablePlaceholders.map((p) => (
+                        <button
+                          key={p.key + '-body'}
+                          onClick={() => insertPlaceholder(p.key, 'body')}
+                          className="px-2 py-0.5 bg-[#0FAE96]/20 text-[#0FAE96] rounded text-xs font-mono hover:bg-[#0FAE96]/40 transition-all"
+                          title={`Insert ${p.label} into body`}
+                        >
+                          + {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    ref={bodyTextareaRef}
+                    placeholder={`Dear Hiring Manager,
+
+I am writing to express my interest in the {job_title} position at {company_name}.
+
+With my skills and experience, I believe I would be a great fit for your team in {location}.
+
+Best regards,
+{your_name}`}
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    className="w-full p-3 bg-gray-800 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-[#0FAE96] focus:ring-2 focus:ring-[#0FAE96]/50 h-64 resize-none font-mono text-sm leading-relaxed"
+                    rows={10}
+                  />
+                </div>
+
+                {/* Placeholder Legend */}
+                <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
+                  <p className="text-xs text-gray-400 mb-2 font-medium">🏷️ Available Placeholders:</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {availablePlaceholders.map((p) => (
+                      <div key={p.key + '-legend'} className="flex items-center gap-2">
+                        <code className="bg-gray-900 px-1.5 py-0.5 rounded text-[#0FAE96]">{p.key}</code>
+                        <span className="text-gray-500">→ {p.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT SIDE - Live Preview (Always visible on desktop, tab on mobile) */}
+              <div className={`flex-1 p-5 bg-[#0d0d1a] overflow-y-auto custom-scrollbar ${mobileTab !== 'preview' ? 'hidden lg:block' : ''}`}>
+                <h3 className="text-lg font-semibold text-white mb-2 lg:mb-4">👁️ Live Preview</h3>
+                <p className="text-xs text-gray-500 mb-4">See how your email looks for each company:</p>
+
+                {companies.length > 0 && (
+                  <div className="space-y-4">
+                    {companies.slice(0, 3).map((company, idx) => (
+                      <div key={idx} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-6 h-6 bg-[#0FAE96] rounded-full flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                          <span className="text-sm font-medium text-white">{company.company}</span>
+                          <span className="text-xs text-gray-500">({company.email})</span>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-gray-400 text-xs uppercase tracking-wide">Subject:</span>
+                            <p className="text-white font-medium mt-0.5">
+                              {replacePlaceholders(subject || 'Your subject here...', company)}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-xs uppercase tracking-wide">Body:</span>
+                            <p className="text-gray-300 mt-0.5 whitespace-pre-wrap text-xs leading-relaxed">
+                              {replacePlaceholders(body || 'Your email body will appear here...', company)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {companies.length > 3 && (
+                      <p className="text-center text-gray-500 text-sm">+ {companies.length - 3} more companies...</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={handleCancel}
-                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!subject.trim() || !body.trim()}
-                className="px-6 py-2 bg-[#0FAE96] text-white rounded hover:bg-[#0C8C79] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Send All ({emailArray.length} Emails)
-              </button>
+
+            {/* Footer - Action Buttons */}
+            <div className="p-5 border-t border-gray-700 flex justify-between items-center bg-[#11011E]">
+              <p className="text-sm text-gray-400">
+                📧 Sending to <span className="text-[#0FAE96] font-bold">{emailArray.length}</span> companies
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancel}
+                  className="px-6 py-2.5 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!subject.trim() || !body.trim()}
+                  className="px-6 py-2.5 bg-[#0FAE96] text-white rounded-lg hover:bg-[#0C8C79] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+                >
+                  <span>📤</span> Send All Emails
+                </button>
+              </div>
             </div>
           </div>
         </div>
