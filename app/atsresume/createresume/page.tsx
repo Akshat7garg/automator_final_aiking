@@ -391,8 +391,8 @@ const CreateResume: React.FC = () => {
           ${links}
           ${styles}
           <style>
-            @page { size: A4; margin: 3mm; }
-            html, body { margin:0; padding-left:0; padding-right:0; padding-bottom:0; padding-top:2mm; background:#ffffff; }
+            @page { size: A4; margin: 10mm; }
+            html, body { margin:0; padding:0; background:#ffffff; }
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .page-break { page-break-after: always; }
           </style>
@@ -613,7 +613,6 @@ const CreateResume: React.FC = () => {
               style={{
                 width: "210mm",
                 minHeight: "297mm",
-                padding: "3mm",
                 background: "#ffffff",
               }}
             >
