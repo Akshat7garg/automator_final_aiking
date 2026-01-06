@@ -17,7 +17,6 @@ import LearningTracker from "./LearningTracker";
 import SkillBlogs from "./SkillBlogs";
 import SkillQuizList from "./SkillQuizList";
 
-
 const Dashboard = () => {
   const { state } = useAppContext();
   const { learningPath, isLoading } = state;
@@ -27,8 +26,6 @@ const Dashboard = () => {
   const [isPremium, setIsPremium] = useState(false);
   const [checkedPremium, setCheckedPremium] = useState(false);
   const [activeTab, setActiveTab] = useState<"lectures" | "tracker" | "blog" | "quiz">("lectures");
-
-
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -141,16 +138,6 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* <div className="mb-6">
-          <button
-            className="bg-[#FF6B6B] text-white font-raleway font-semibold text-base px-6 py-2 rounded-md h-10 transition duration-200 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#FF6B6B]"
-            onClick={handleResetData}
-          >
-            <Trash2 className="mr-2 h-4 w-4 inline" />
-            Reset Data and Re-analyze
-          </button>
-        </div> */}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-16">
           <div className="lg:col-span-2">
 
@@ -216,9 +203,7 @@ const Dashboard = () => {
               </div>
             )}
 
-
           </div>
-
 
           <div className="space-y-6">
             {!isPremium && <PremiumCard />}
