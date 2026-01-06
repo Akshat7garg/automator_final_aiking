@@ -155,7 +155,7 @@ const Certificate = forwardRef<HTMLDivElement, CertificateProps>(
                     </div>
 
                     {/* SIGNATURE */}
-                    <div style={{ textAlign: "right" }}>
+                    <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "end" }}>
                         <img
                             src="/director-sign.png"
                             alt="Director Signature"
